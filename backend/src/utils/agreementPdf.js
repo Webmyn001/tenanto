@@ -1,0 +1,147 @@
+const PDFDocument = require('pdfkit');
+const crypto = require('crypto');
+
+function naira(n) { return '\u20A6' + Number(n || 0).toLocaleString('en-NG'); }
+function date(d) { return d ? new Date(d).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'; }
+
+/**
+ * Render a tenancy agreement to a PDF buffer.
+ *
+ * @param {Object} ctx
+ * @param {Object} ctx.agreement  Agreement doc (with signedAt fields)
+ * @param {Object} ctx.payment    Payment doc
+ * @param {Object} ctx.property   Property doc (with fullAddress selected)
+ * @param {Object} ctx.tenant     User doc
+ * @param {Object} ctx.landlord   User doc
+ * @returns {Promise<Buffer>}
+ */
+function renderAgreementPDF({ agreement, payment, property, tenant, landlord }) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 60 });
+      const chunks = [];
+      doc.on('data', (c) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // --- Header ---
+      doc.fillColor('#15803d').fontSize(10).text('TENANTO', { align: 'right' });
+      doc.fillColor('#000').fontSize(22).font('Helvetica-Bold').text('Tenancy Agreement', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(10).font('Helvetica').fillColor('#555').text(`Agreement ID: ${agreement._id}`, { align: 'center' });
+      doc.text(`Generated: ${date(agreement.createdAt || new Date())}`, { align: 'center' });
+      doc.moveDown(1);
+
+      // --- Parties ---
+      sectionHeading(doc, 'Parties');
+      kv(doc, 'Tenant', tenant.fullName);
+      kv(doc, 'Tenant email', tenant.email);
+      kv(doc, 'Landlord', landlord.fullName);
+      kv(doc, 'Landlord email', landlord.email);
+      doc.moveDown(0.6);
+
+      // --- Property ---
+      sectionHeading(doc, 'Property');
+      kv(doc, 'Title', property.title);
+      kv(doc, 'Type', `${property.propertyType} · ${property.furnishing}`);
+      kv(doc, 'Address', property.fullAddress || `(area: ${property.area})`);
+      doc.moveDown(0.6);
+
+      // --- Financials ---
+      sectionHeading(doc, 'Financial terms');
+      kv(doc, 'Annual rent', naira(payment.rentAmount));
+      kv(doc, 'Service charge', naira(payment.serviceCharge));
+      kv(doc, 'Caution fee', naira(payment.cautionFee));
+      kv(doc, 'Inspection credit', '− ' + naira(payment.inspectionCredit));
+      kv(doc, 'Platform fee (tenant)', naira(payment.platformFeeTenant));
+      kv(doc, 'Total payable', naira(payment.totalDue));
+      kv(doc, 'Payment mode', payment.paymentMode);
+      if (payment.paymentMode === 'installment') {
+        kv(doc, 'Installments', `${payment.installments?.length || 0} months`);
+      }
+      doc.moveDown(0.6);
+
+      // --- Terms ---
+      sectionHeading(doc, 'Terms');
+      const terms = [
+        '1. The Tenant agrees to occupy the Property for a term of twelve (12) months commencing on the date of move-in confirmation.',
+        '2. Rent and associated charges have been remitted into Tenanto\'s escrow facility and will be released to the Landlord only upon the Tenant\'s confirmation of move-in.',
+        '3. Where the Tenant disputes the condition or accuracy of the listing within seven (7) days of move-in, escrow funds may be refunded in part or in full following platform review.',
+        '4. Both parties agree that any payment, transfer or arrangement made outside the Tenanto platform is unprotected. No refund, dispute resolution, or escrow guarantee applies to off-platform transactions.',
+        '5. The Landlord agrees to maintain the Property in habitable condition and to provide reasonable notice prior to entry.',
+        '6. The Tenant agrees to use the Property responsibly, to remit subsequent installments (if applicable) on or before their due dates, and to give thirty (30) days written notice prior to vacating.',
+        '7. Any modification to this Agreement must be made in writing through the Tenanto platform and signed by both parties.',
+        '8. Disputes not resolved through platform mediation shall be submitted to arbitration in the state of property location.',
+      ];
+      doc.fontSize(10).font('Helvetica').fillColor('#222');
+      for (const t of terms) {
+        doc.text(t, { align: 'justify' });
+        doc.moveDown(0.4);
+      }
+
+      doc.moveDown(0.8);
+
+      // --- Signatures ---
+      sectionHeading(doc, 'Signatures');
+      signatureBlock(doc, {
+        label: 'Tenant',
+        name: tenant.fullName,
+        signedAt: agreement.tenantSignedAt,
+        hash: agreement.tenantSignatureHash,
+      });
+      doc.moveDown(0.6);
+      signatureBlock(doc, {
+        label: 'Landlord',
+        name: landlord.fullName,
+        signedAt: agreement.landlordSignedAt,
+        hash: agreement.landlordSignatureHash,
+      });
+
+      // --- Footer ---
+      doc.moveDown(1.5);
+      doc.fontSize(8).fillColor('#888').text(
+        'This Agreement was generated by Tenanto. Digital signatures are recorded as SHA-256 hashes of (timestamp + user ID + payment ID) and verified against the Tenanto audit log. The canonical version of this Agreement is the one stored against this Agreement ID on the platform.',
+        { align: 'justify' }
+      );
+
+      doc.end();
+    } catch (e) { reject(e); }
+  });
+}
+
+function sectionHeading(doc, text) {
+  doc.fontSize(13).font('Helvetica-Bold').fillColor('#15803d').text(text);
+  doc.moveTo(doc.x, doc.y).lineTo(doc.x + 470, doc.y).strokeColor('#dcfceb').stroke();
+  doc.moveDown(0.4);
+  doc.fontSize(10).font('Helvetica').fillColor('#000');
+}
+
+function kv(doc, k, v) {
+  const startX = doc.x;
+  doc.font('Helvetica').fillColor('#666').text(k + ':', { continued: true, width: 140 });
+  doc.font('Helvetica-Bold').fillColor('#000').text(' ' + (v ?? '—'));
+  doc.x = startX;
+}
+
+function signatureBlock(doc, { label, name, signedAt, hash }) {
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#000').text(label);
+  doc.moveDown(0.2);
+  if (signedAt) {
+    doc.fontSize(10).font('Helvetica').fillColor('#15803d')
+       .text(`✓ Signed by ${name} on ${date(signedAt)}`);
+    doc.fontSize(8).fillColor('#888').text(`Signature hash: ${hash}`);
+  } else {
+    doc.fontSize(10).fillColor('#aaa').text(`Awaiting signature from ${name}`);
+    // Draw a signature line
+    doc.moveTo(doc.x, doc.y + 18).lineTo(doc.x + 250, doc.y + 18).strokeColor('#bbb').stroke();
+    doc.moveDown(2);
+  }
+}
+
+function makeSignatureHash({ userId, paymentId, signedAt }) {
+  return crypto.createHash('sha256')
+    .update(`${userId}:${paymentId}:${signedAt.toISOString()}`)
+    .digest('hex');
+}
+
+module.exports = { renderAgreementPDF, makeSignatureHash };

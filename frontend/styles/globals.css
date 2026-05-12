@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #__next { height: 100%; }
+
+body {
+  background: #fdfbf7;
+  color: #0f172a;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────────────── */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-[0.98];
+  min-height: 44px; /* iOS tap target */
+}
+.btn-primary {
+  @apply btn bg-brand-600 text-white shadow-soft hover:bg-brand-700 hover:shadow-lift focus:outline-none focus:shadow-ring;
+}
+.btn-accent {
+  @apply btn bg-accent-500 text-white shadow-soft hover:bg-accent-600 hover:shadow-lift focus:outline-none;
+}
+.btn-outline {
+  @apply btn border border-ink-200 bg-white text-ink-900 hover:border-brand-400 hover:text-brand-700 hover:bg-brand-50;
+}
+.btn-ghost {
+  @apply btn text-ink-700 hover:bg-ink-100 hover:text-ink-900;
+}
+.btn-danger {
+  @apply btn bg-red-600 text-white hover:bg-red-700;
+}
+
+/* ─── Inputs ───────────────────────────────────────────────────────── */
+.input {
+  @apply w-full rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-base text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+  min-height: 44px;
+}
+.label { @apply mb-1.5 block text-sm font-semibold text-ink-700; }
+
+/* ─── Surfaces ─────────────────────────────────────────────────────── */
+.card {
+  @apply rounded-2xl border border-ink-200 bg-white p-5 shadow-soft transition-shadow;
+}
+.card-elevated { @apply card hover:shadow-lift; }
+
+/* ─── Badges ───────────────────────────────────────────────────────── */
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700;
+}
+.badge-warn {
+  @apply inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-1 text-xs font-semibold text-accent-700;
+}
+.badge-gray {
+  @apply inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700;
+}
+.badge-danger {
+  @apply inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700;
+}
+
+/* Per-role identity badges */
+.role-student  { @apply inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700; }
+.role-corper   { @apply inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700; }
+.role-landlord { @apply inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700; }
+.role-admin    { @apply inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700; }
+
+/* ─── Subtle decorative gradients used on landing & dashboards ───── */
+.gradient-warm {
+  background: linear-gradient(135deg, #fff8eb 0%, #fdfbf7 50%, #f0fbfa 100%);
+}
+.gradient-brand {
+  background: linear-gradient(135deg, #0f635c 0%, #127c72 50%, #249a8e 100%);
+}
+
+/* ─── Animations ───────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ─── Utility for safe-area insets on mobile ──────────────────────── */
+.safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+
+/* ─── Better scrollbars on desktop, hidden on mobile ─────────────── */
+@media (hover: hover) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+}
