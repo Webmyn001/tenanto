@@ -12,13 +12,13 @@ const schoolEmailCodes = new Map();
 
 async function submitDocuments(req, res) {
   const user = req.user;
-  const { documents = [], selfieUrl } = req.body;
+  const { documents = [], selfieUrl, finalize = false } = req.body;
   for (const d of documents) {
     if (!d.kind || !d.url) return res.status(400).json({ error: 'Each document needs kind + url' });
     user.documents.push(d);
   }
   if (selfieUrl) user.selfieUrl = selfieUrl;
-  user.verificationStatus = 'submitted';
+  if (finalize) user.verificationStatus = 'submitted';
   await user.save();
 
   // If we have both a selfie and an ID document, try matching

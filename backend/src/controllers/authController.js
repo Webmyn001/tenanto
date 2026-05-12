@@ -35,6 +35,10 @@ async function register(req, res) {
       stateCode: extras.stateCode,
       stateOfService: stateFromNyscCode(extras.stateCode) || extras.stateOfService,
     };
+  } else if (role === 'landlord') {
+    user.landlord = {
+      // Landlord specific fields like bank details are added later
+    };
   }
 
   await user.save();

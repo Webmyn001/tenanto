@@ -12,6 +12,7 @@ export default function Register() {
     fullName: '', email: '', phone: '', password: '',
     schoolName: '', schoolEmail: '', department: '', matricNumber: '',
     stateCode: '', stateOfService: '',
+    acceptTerms: false,
   });
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,6 +86,20 @@ export default function Register() {
                   <input className="input" value={form.stateOfService} onChange={(e) => setForm({ ...form, stateOfService: e.target.value })} /></div>
               </>
             )}
+
+            <div className="md:col-span-2 flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="acceptTerms"
+                className="mt-1"
+                required
+                checked={form.acceptTerms}
+                onChange={(e) => setForm({ ...form, acceptTerms: e.target.checked })}
+              />
+              <label htmlFor="acceptTerms" className="text-sm text-gray-600">
+                I accept the <Link href="/legal/terms" className="text-brand-700 underline">Terms of Service</Link> and <Link href="/legal/privacy" className="text-brand-700 underline">Privacy Policy</Link>.
+              </label>
+            </div>
 
             {err && <p className="md:col-span-2 text-sm text-red-600">{err}</p>}
             <button disabled={loading} className="btn-primary md:col-span-2">{loading ? '…' : 'Create account'}</button>

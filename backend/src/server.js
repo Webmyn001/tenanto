@@ -19,7 +19,10 @@ const { mountSwagger } = require('./openapi');
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || true, credentials: true }));
+app.use(cors({
+  origin: process.env.CLIENT_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : false),
+  credentials: true
+}));
 app.use(pinoHttp({
   logger,
   customLogLevel: (req, res, err) => {

@@ -119,6 +119,26 @@ export default function VerifyPage() {
       </div>
 
       <div className="card mt-6">
+        <h3 className="font-semibold">Submit for review</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          Once you've uploaded all required documents, click the button below.
+          An admin will review your application within 24 hours.
+        </p>
+        <button
+          onClick={async () => {
+            try {
+              await api.post('/verify/documents', { finalize: true });
+              setMsg('Verification submitted for review ✓'); refresh();
+            } catch (e) { setMsg(e?.response?.data?.error || 'Submission failed'); }
+          }}
+          disabled={user.verificationStatus !== 'pending'}
+          className="btn-primary mt-4"
+        >
+          {user.verificationStatus === 'submitted' ? 'Waiting for review...' : 'Submit for review'}
+        </button>
+      </div>
+
+      <div className="card mt-6">
         <h3 className="font-semibold">What happens next</h3>
         <p className="mt-1 text-sm text-gray-600">
           Once you've submitted everything, an admin reviews your documents (usually within 24 h).

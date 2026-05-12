@@ -347,6 +347,15 @@ async function webhook(req, res) {
       if (updated.escrowStatus === 'fully_funded') {
         await maybeAutoGenerateAgreement(updated);
       }
+    } else if (event.data?.metadata?.paymentId) {
+      // Full-mode payment: look up via metadata ID
+      const full = await Payment.findById(event.data.metadata.paymentId);
+      if (full && full.escrowStatus === 'awaiting_funding') {
+        full.escrowStatus = 'fully_funded';
+        full.escrowFundedAt = new Date();
+        await full.save();
+        await maybeAutoGenerateAgreement(full);
+      }
     }
   }
 
