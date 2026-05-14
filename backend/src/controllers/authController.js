@@ -49,8 +49,8 @@ async function register(req, res) {
 
   await user.save();
 
-  // Send verification email
-  await sendMail({
+  // Send verification email (don't await so the API is fast)
+  sendMail({
     to: user.email,
     subject: 'Verify your Tenanto account',
     text: `Your email verification code is: ${verificationCode}`,
@@ -65,7 +65,8 @@ async function register(req, res) {
   }).catch(e => console.error('Verification email failed:', e.message));
 
   const token = sign({ id: user._id.toString(), role: user.role });
-  res.status(201).json({ token, user: publicUser(user) });
+  const dev = process.env.NODE_ENV !== 'production';
+  res.status(201).json({ token, user: publicUser(user), ...(dev && { devCode: verificationCode }) });
 }
 
 async function login(req, res) {
@@ -108,7 +109,8 @@ async function forgotPassword(req, res) {
   user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
   await user.save();
 
-  await sendMail({
+  // Send email in background
+  sendMail({
     to: user.email,
     subject: 'Password Reset Code - Tenanto',
     text: `Your password reset code is: ${code}. It expires in 15 minutes.`,
@@ -121,9 +123,13 @@ async function forgotPassword(req, res) {
         <p style="color: #999; font-size: 12px; margin-top: 20px;">If you didn't request this, you can safely ignore this email.</p>
       </div>
     `,
-  });
+  }).catch(e => console.error('Forgot password email failed:', e.message));
 
-  res.json({ message: 'If that email exists in our system, a code has been sent.' });
+  const dev = process.env.NODE_ENV !== 'production';
+  res.json({ 
+    message: 'If that email exists in our system, a code has been sent.',
+    ...(dev && { devCode: code })
+  });
 }
 
 async function resetPassword(req, res) {
@@ -185,14 +191,15 @@ async function resendVerification(req, res) {
   user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await user.save();
 
-  await sendMail({
+  sendMail({
     to: user.email,
     subject: 'Verify your Tenanto account',
     text: `Your email verification code is: ${code}`,
     html: `<div style="font-family: sans-serif; padding: 20px;"><h2>Verification Code</h2><p>Use the code below to verify your account:</p><h1 style="letter-spacing: 5px;">${code}</h1></div>`,
-  });
+  }).catch(e => console.error('Resend verification email failed:', e.message));
 
-  res.json({ message: 'Verification code resent' });
+  const dev = process.env.NODE_ENV !== 'production';
+  res.json({ message: 'Verification code resent', ...(dev && { devCode: code }) });
 }
 
 module.exports = { register, login, me, forgotPassword, resetPassword, verifyEmail, resendVerification };
