@@ -19,6 +19,7 @@ async function main() {
     password: 'admin1234',
     role: 'admin',
     verificationStatus: 'approved',
+    isEmailVerified: true,
   });
 
   const landlord = await User.create({
@@ -27,6 +28,7 @@ async function main() {
     password: 'landlord1234',
     role: 'landlord',
     verificationStatus: 'approved',
+    isEmailVerified: true,
     landlord: { nin: '12345678900', ninVerified: true, adminApproved: true },
     badges: ['verified_landlord'],
     trustScore: 80,
@@ -38,6 +40,7 @@ async function main() {
     password: 'student1234',
     role: 'student',
     verificationStatus: 'approved',
+    isEmailVerified: true,
     student: {
       schoolName: 'University of Ibadan',
       schoolEmail: 'tunde@stu.ui.edu.ng',
@@ -54,6 +57,7 @@ async function main() {
     password: 'corper1234',
     role: 'corper',
     verificationStatus: 'approved',
+    isEmailVerified: true,
     corper: {
       nin: '11111111110', // ends in 0 → mock-verified
       ninVerified: true,

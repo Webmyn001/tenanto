@@ -20,6 +20,9 @@ export default function Login() {
                  : '/dashboard/tenant';
       router.push(dash);
     } catch (e) {
+      if (e?.response?.data?.unverified) {
+        return router.push(`/verify-email?email=${encodeURIComponent(e.response.data.email || form.email)}`);
+      }
       setErr(e?.response?.data?.error || 'Login failed');
     } finally { setLoading(false); }
   }
@@ -36,7 +39,12 @@ export default function Login() {
               <input type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
             <div>
-              <label className="label">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="label">Password</label>
+                <Link href="/forgot-password" title="Go to forgot password page" className="text-xs text-brand-700 hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
               <input type="password" className="input" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}

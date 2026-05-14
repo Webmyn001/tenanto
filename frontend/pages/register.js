@@ -21,8 +21,9 @@ export default function Register() {
     e.preventDefault(); setErr(''); setLoading(true);
     try {
       const { data } = await api.post('/auth/register', { ...form, role });
-      saveAuth(data.token, data.user);
-      router.push('/verify');
+      // We don't saveAuth yet because they need to verify email first to fully "log in"
+      // saveAuth(data.token, data.user); 
+      router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
     } catch (e) {
       setErr(e?.response?.data?.error || 'Registration failed');
     } finally { setLoading(false); }

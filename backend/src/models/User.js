@@ -112,6 +112,15 @@ const userSchema = new mongoose.Schema(
     suspended: { type: Boolean, default: false },
     suspensionReason: String,
     bypassWarnings: { type: Number, default: 0 },
+
+    // --- Reset Password ---
+    resetPasswordCode: String,
+    resetPasswordExpires: Date,
+
+    // --- Email Verification ---
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationCode: String,
+    emailVerificationExpires: Date,
   },
   { timestamps: true }
 );
