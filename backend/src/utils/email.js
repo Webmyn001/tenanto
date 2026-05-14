@@ -29,7 +29,17 @@ async function sendMail({ to, subject, text, html }) {
     return { dev: true, logged: true };
   }
   const from = process.env.SMTP_FROM || 'Tenanto <noreply@tenanto.local>';
-  return t.sendMail({ from, to, subject, text, html });
+  try {
+    const info = await t.sendMail({ from, to, subject, text, html });
+    console.log(`[email:success] Message sent to ${to}: ${info.messageId}`);
+    return info;
+  } catch (err) {
+    console.error(`[email:error] Failed to send email to ${to}:`, err.message);
+    if (err.code === 'EAUTH') {
+      console.error('[email:error] Authentication failed. Check your SMTP_USER and SMTP_PASS.');
+    }
+    throw err;
+  }
 }
 
 module.exports = { sendMail };
