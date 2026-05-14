@@ -62,7 +62,13 @@ async function register(req, res) {
         <p style="color: #666; font-size: 14px;">This code expires in 24 hours.</p>
       </div>
     `,
-  }).catch(e => console.error('Verification email failed:', e.message));
+  }).catch(e => {
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.error('VERIFICATION EMAIL FAILED TO SEND!');
+    console.error('Error:', e.message);
+    console.error('Code:', e.code);
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  });
 
   const token = sign({ id: user._id.toString(), role: user.role });
   const dev = process.env.NODE_ENV !== 'production';
@@ -123,7 +129,12 @@ async function forgotPassword(req, res) {
         <p style="color: #999; font-size: 12px; margin-top: 20px;">If you didn't request this, you can safely ignore this email.</p>
       </div>
     `,
-  }).catch(e => console.error('Forgot password email failed:', e.message));
+  }).catch(e => {
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.error('FORGOT PASSWORD EMAIL FAILED TO SEND!');
+    console.error('Error:', e.message);
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  });
 
   const dev = process.env.NODE_ENV !== 'production';
   res.json({ 

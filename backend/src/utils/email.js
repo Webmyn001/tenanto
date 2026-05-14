@@ -10,15 +10,29 @@ let transporter = null;
 function getTransporter() {
   if (transporter !== null) return transporter;
   if (!nodemailer || !process.env.SMTP_HOST) {
-    transporter = false; // explicitly disabled
+    console.log('[email] SMTP_HOST not set, using console fallback');
+    transporter = false;
     return false;
   }
-  transporter = nodemailer.createTransport({
+  
+  const config = {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+  };
+
+  transporter = nodemailer.createTransport(config);
+  
+  // Verify connection configuration
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error('[email:error] SMTP Connection Error:', error.message);
+    } else {
+      console.log('[email:success] SMTP Server is ready to take our messages');
+    }
   });
+
   return transporter;
 }
 
