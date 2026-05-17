@@ -102,3 +102,8 @@ h1, h2, h3, h4 {
   ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
   ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 }
+
+/* ─── Loading Spinner ──────────────────────────────────────────────── */
+.spinner {
+  @apply inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-r-transparent align-text-bottom;
+}

@@ -81,7 +81,7 @@ export default function VerifyEmail() {
               disabled={loading}
               className="btn-primary w-full py-4 text-lg font-bold shadow-lg shadow-brand-200 hover:shadow-brand-300 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
-              {loading ? 'Verifying...' : 'Verify Email'}
+              {loading ? <span className="spinner" /> : 'Verify Email'}
             </button>
           </form>
 

@@ -103,7 +103,9 @@ export default function Register() {
             </div>
 
             {err && <p className="md:col-span-2 text-sm text-red-600">{err}</p>}
-            <button disabled={loading} className="btn-primary md:col-span-2">{loading ? '…' : 'Create account'}</button>
+            <button disabled={loading} className="btn-primary md:col-span-2">
+              {loading ? <span className="spinner mr-2" /> : 'Create account'}
+            </button>
           </form>
 
           <p className="mt-4 text-center text-sm text-gray-600">

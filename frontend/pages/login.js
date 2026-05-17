@@ -48,7 +48,9 @@ export default function Login() {
               <input type="password" className="input" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}
-            <button disabled={loading} className="btn-primary w-full">{loading ? '…' : 'Sign in'}</button>
+            <button disabled={loading} className="btn-primary w-full">
+              {loading ? <span className="spinner mr-2" /> : 'Sign in'}
+            </button>
           </form>
           <p className="mt-4 text-center text-sm text-gray-600">
             New here? <Link href="/register" className="text-brand-700 underline">Create an account</Link>

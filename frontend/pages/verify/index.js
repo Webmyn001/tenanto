@@ -11,6 +11,12 @@ export default function VerifyPage() {
   const [devCode, setDevCode] = useState('');
   const [docKind, setDocKind] = useState('student_id');
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState({
+    nin: false,
+    email: false,
+    confirm: false,
+    finalize: false
+  });
 
   useEffect(() => { setUser(getUser()); }, []);
   if (!user) return null;
@@ -22,27 +28,31 @@ export default function VerifyPage() {
   }
 
   async function submitNIN() {
-    setMsg('');
+    setMsg(''); setLoading({ ...loading, nin: true });
     try {
       await api.post('/verify/nin', { nin });
       setMsg('NIN verified ✓'); refresh();
     } catch (e) { setMsg(e?.response?.data?.error || 'NIN failed'); }
+    finally { setLoading({ ...loading, nin: false }); }
   }
 
   async function startSchoolEmail() {
-    setMsg(''); setDevCode('');
+    setMsg(''); setDevCode(''); setLoading({ ...loading, email: true });
     try {
       const { data } = await api.post('/verify/school-email/start', { schoolEmail });
       setMsg('Code sent. Check your school email.');
       if (data.devCode) setDevCode(data.devCode);
     } catch (e) { setMsg(e?.response?.data?.error || 'Failed'); }
+    finally { setLoading({ ...loading, email: false }); }
   }
 
   async function confirmSchoolEmail() {
+    setMsg(''); setLoading({ ...loading, confirm: true });
     try {
       await api.post('/verify/school-email/confirm', { code: schoolCode });
       setMsg('School email verified ✓'); refresh();
     } catch (e) { setMsg(e?.response?.data?.error || 'Failed'); }
+    finally { setLoading({ ...loading, confirm: false }); }
   }
 
   async function uploadDoc(e) {
@@ -80,7 +90,9 @@ export default function VerifyPage() {
             <h2 className="font-semibold">Step 1 · NIN verification</h2>
             <p className="mt-1 text-sm text-gray-600">In dev, use any 11-digit number ending in an even digit.</p>
             <input className="input mt-3" placeholder="11-digit NIN" value={nin} onChange={(e) => setNin(e.target.value)} />
-            <button onClick={submitNIN} className="btn-primary mt-3">Verify NIN</button>
+            <button onClick={submitNIN} disabled={loading.nin} className="btn-primary mt-3 w-full">
+              {loading.nin ? <span className="spinner" /> : 'Verify NIN'}
+            </button>
           </div>
         )}
 
@@ -88,10 +100,14 @@ export default function VerifyPage() {
           <div className="card">
             <h2 className="font-semibold">Step 1 · School email (.edu.ng)</h2>
             <input className="input mt-3" placeholder="you@stu.school.edu.ng" value={schoolEmail} onChange={(e) => setSchoolEmail(e.target.value)} />
-            <button onClick={startSchoolEmail} className="btn-outline mt-3">Send code</button>
+            <button onClick={startSchoolEmail} disabled={loading.email} className="btn-outline mt-3 w-full">
+              {loading.email ? <span className="spinner" /> : 'Send code'}
+            </button>
             {devCode && <p className="mt-2 text-xs text-gray-500">Dev code: <b>{devCode}</b></p>}
             <input className="input mt-3" placeholder="6-digit code" value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} />
-            <button onClick={confirmSchoolEmail} className="btn-primary mt-3">Confirm</button>
+            <button onClick={confirmSchoolEmail} disabled={loading.confirm} className="btn-primary mt-3 w-full">
+              {loading.confirm ? <span className="spinner" /> : 'Confirm'}
+            </button>
           </div>
         )}
 
@@ -126,15 +142,17 @@ export default function VerifyPage() {
         </p>
         <button
           onClick={async () => {
+            setMsg(''); setLoading({ ...loading, finalize: true });
             try {
               await api.post('/verify/documents', { finalize: true });
               setMsg('Verification submitted for review ✓'); refresh();
             } catch (e) { setMsg(e?.response?.data?.error || 'Submission failed'); }
+            finally { setLoading({ ...loading, finalize: false }); }
           }}
-          disabled={user.verificationStatus !== 'pending'}
-          className="btn-primary mt-4"
+          disabled={user.verificationStatus !== 'pending' || loading.finalize}
+          className="btn-primary mt-4 w-full"
         >
-          {user.verificationStatus === 'submitted' ? 'Waiting for review...' : 'Submit for review'}
+          {loading.finalize ? <span className="spinner" /> : (user.verificationStatus === 'submitted' ? 'Waiting for review...' : 'Submit for review')}
         </button>
       </div>
 

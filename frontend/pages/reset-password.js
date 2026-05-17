@@ -139,7 +139,7 @@ export default function ResetPassword() {
               disabled={loading}
               className="btn-primary w-full py-3 text-lg font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              {loading ? 'Processing...' : 'Reset Password'}
+              {loading ? <span className="spinner mr-2" /> : 'Reset Password'}
             </button>
           </form>
 
