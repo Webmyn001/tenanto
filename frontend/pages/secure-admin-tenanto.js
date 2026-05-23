@@ -95,6 +95,7 @@ export default function SecureAdmin() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [analytics, setAnalytics] = useState(null);
+  const [breakdown, setBreakdown] = useState(null);
   const [usersData, setUsersData] = useState({ items: [], total: 0, page: 1, pages: 1 });
   const [propsData, setPropsData] = useState({ items: [], total: 0, page: 1, pages: 1 });
   const [verifications, setVerifications] = useState({ items: [] });
@@ -162,8 +163,12 @@ export default function SecureAdmin() {
       switch (section) {
         case 'overview':
           {
-            const { data } = await api.get('/admin/analytics');
-            setAnalytics(data);
+            const [analyticsResp, breakdownResp] = await Promise.all([
+              api.get('/admin/analytics'),
+              api.get('/admin/analytics/breakdown'),
+            ]);
+            setAnalytics(analyticsResp.data);
+            setBreakdown(breakdownResp.data);
           }
           break;
         case 'users':
@@ -431,7 +436,7 @@ export default function SecureAdmin() {
             <LoadingSkeleton rows={6} />
           ) : (
             <>
-              {activeSection === 'overview' && <OverviewSection analytics={analytics} />}
+              {activeSection === 'overview' && <OverviewSection analytics={analytics} breakdown={breakdown} />}
               {activeSection === 'users' && (
                 <UsersSection
                   data={usersData}
@@ -504,7 +509,7 @@ export default function SecureAdmin() {
 }
 
 /* ─── Section: Overview ─────────────────────────────────────────── */
-function OverviewSection({ analytics }) {
+function OverviewSection({ analytics, breakdown }) {
   const cards = [
     { label: 'Total Users', value: analytics?.users, icon: 'users', color: 'brand' },
     { label: 'Total Properties', value: analytics?.listings, icon: 'properties', color: 'blue' },
@@ -514,8 +519,98 @@ function OverviewSection({ analytics }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {cards.map(c => <StatCard key={c.label} {...c} />)}
+    <div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {cards.map(c => <StatCard key={c.label} {...c} />)}
+      </div>
+
+      {breakdown && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <BarChart
+            title="Users by Verification Status"
+            data={breakdown.verificationCounts}
+            bars={[
+              { key: 'pending', label: 'Pending', color: 'bg-ink-300' },
+              { key: 'submitted', label: 'Submitted', color: 'bg-accent-400' },
+              { key: 'approved', label: 'Approved', color: 'bg-brand-500' },
+              { key: 'rejected', label: 'Rejected', color: 'bg-red-400' },
+            ]}
+          />
+          <BarChart
+            title="Users by Role"
+            data={breakdown.roleCounts}
+            bars={[
+              { key: 'student', label: 'Student', color: 'bg-blue-500' },
+              { key: 'corper', label: 'Corper', color: 'bg-green-500' },
+              { key: 'landlord', label: 'Landlord', color: 'bg-violet-500' },
+              { key: 'admin', label: 'Admin', color: 'bg-red-500' },
+            ]}
+          />
+          {breakdown.registrationTrend?.length > 0 && (
+            <div className="lg:col-span-2">
+              <TrendChart data={breakdown.registrationTrend} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BarChart({ title, data, bars }) {
+  const maxVal = Math.max(...bars.map(b => data[b.key] ?? 0), 1);
+  const total = bars.reduce((s, b) => s + (data[b.key] ?? 0), 0);
+
+  return (
+    <div className="card">
+      <h3 className="mb-4 text-sm font-bold font-display text-ink-900">{title}</h3>
+      <div className="space-y-3">
+        {bars.map(b => {
+          const val = data[b.key] ?? 0;
+          const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+          return (
+            <div key={b.key}>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="text-ink-700">{b.label}</span>
+                <span className="font-semibold text-ink-900">{val} <span className="text-xs font-normal text-ink-400">({total > 0 ? Math.round((val / total) * 100) : 0}%)</span></span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-ink-100">
+                <div className={`h-full rounded-full transition-all duration-500 ${b.color}`} style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TrendChart({ data }) {
+  if (!data || data.length === 0) return null;
+  const vals = data.map(d => d.count);
+  const maxVal = Math.max(...vals, 1);
+  const total = vals.reduce((s, v) => s + v, 0);
+
+  return (
+    <div className="card">
+      <h3 className="mb-1 text-sm font-bold font-display text-ink-900">Registrations (last 6 months)</h3>
+      <p className="mb-4 text-xs text-ink-400">{total} total signups</p>
+      <div className="flex items-end gap-2 sm:gap-3" style={{ height: '160px' }}>
+        {data.map(d => {
+          const pct = maxVal > 0 ? (d.count / maxVal) * 100 : 0;
+          const barH = Math.max(pct * 1.5, 8);
+          return (
+            <div key={d._id} className="flex flex-1 flex-col items-center justify-end gap-1.5 h-full">
+              <span className="text-xs font-semibold text-ink-900">{d.count}</span>
+              <div
+                className="w-full rounded-t-md bg-gradient-to-t from-brand-500 to-brand-400 transition-all duration-500"
+                style={{ height: `${barH}px`, maxHeight: '100%' }}
+              />
+              <span className="text-[10px] text-ink-500">{d._id}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

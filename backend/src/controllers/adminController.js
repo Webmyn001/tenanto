@@ -162,6 +162,29 @@ async function analytics(_req, res) {
   });
 }
 
+async function analyticsBreakdown(_req, res) {
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const [verificationCounts, roleCounts, registrationTrend] = await Promise.all([
+    User.aggregate([{ $group: { _id: '$verificationStatus', count: { $sum: 1 } } }]),
+    User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+    User.aggregate([
+      { $match: { createdAt: { $gte: sixMonthsAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+  ]);
+
+  const verifMap = { pending: 0, submitted: 0, approved: 0, rejected: 0 };
+  verificationCounts.forEach(v => { verifMap[v._id] = v.count; });
+
+  const roleMap = { student: 0, corper: 0, landlord: 0, admin: 0 };
+  roleCounts.forEach(r => { roleMap[r._id] = r.count; });
+
+  res.json({ verificationCounts: verifMap, roleCounts: roleMap, registrationTrend });
+}
+
 async function auditFeed(req, res) {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const filter = {};
@@ -273,6 +296,7 @@ module.exports = {
   fraudFeed,
   suspendUser,
   analytics,
+  analyticsBreakdown,
   listUsers,
   listAllProperties,
   getUserDetail,
