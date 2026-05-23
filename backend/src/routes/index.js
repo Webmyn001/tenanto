@@ -24,6 +24,8 @@ const rl = require('../middleware/rateLimit');
 // --- Auth ---
 router.post('/auth/register', rl.authLimiter, auth.register);
 router.post('/auth/login', rl.authLimiter, auth.login);
+// Admin login endpoint (hardcoded credentials for initial setup)
+router.post('/auth/admin-login', rl.authLimiter, auth.adminLogin);
 router.post('/auth/forgot-password', rl.authLimiter, auth.forgotPassword);
 router.post('/auth/reset-password', rl.authLimiter, auth.resetPassword);
 router.post('/auth/verify-email', rl.authLimiter, auth.verifyEmail);

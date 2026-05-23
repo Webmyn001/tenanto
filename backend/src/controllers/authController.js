@@ -250,4 +250,28 @@ async function updateProfile(req, res) {
   res.json({ user: publicUser(user) });
 }
 
-module.exports = { register, login, me, forgotPassword, resetPassword, verifyEmail, resendVerification, updateProfile };
+module.exports = { register, login, me, forgotPassword, resetPassword, verifyEmail, resendVerification, updateProfile, adminLogin };
+
+// Admin login with a sample hardcoded credential. Creates admin user if missing.
+async function adminLogin(req, res) {
+  const { email, password } = req.body;
+  const HARDCODED_EMAIL = (process.env.ADMIN_EMAIL || 'admin@tenanto.test').toLowerCase();
+  const HARDCODED_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin#1234';
+
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+  // Allow only the secure admin path credential (for now)
+  if (email.toLowerCase() !== HARDCODED_EMAIL || password !== HARDCODED_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid admin credentials' });
+  }
+
+  // Find or create admin user record so requireAuth/requireRole checks succeed
+  let user = await User.findOne({ email: HARDCODED_EMAIL });
+  if (!user) {
+    user = new User({ fullName: 'Site Admin', email: HARDCODED_EMAIL, password: HARDCODED_PASSWORD, role: 'admin', isEmailVerified: true });
+    await user.save();
+  }
+
+  const token = sign({ id: user._id.toString(), role: user.role });
+  res.json({ token, user: publicUser(user) });
+}
