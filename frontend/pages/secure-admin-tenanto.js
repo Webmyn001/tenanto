@@ -105,6 +105,14 @@ export default function SecureAdmin() {
   const [sectionLoading, setSectionLoading] = useState(false);
   const [globalMsg, setGlobalMsg] = useState(null);
 
+  const [detailUser, setDetailUser] = useState(null);
+  const [detailUserPayments, setDetailUserPayments] = useState([]);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUserData, setEditUserData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   const [searchUser, setSearchUser] = useState('');
   const [userRole, setUserRole] = useState('');
   const [userPage, setUserPage] = useState(1);
@@ -213,6 +221,86 @@ export default function SecureAdmin() {
       setTimeout(() => setGlobalMsg(null), 3000);
     } catch (err) {
       setGlobalMsg({ type: 'error', text: err?.response?.data?.error || 'Action failed' });
+    }
+  }
+
+  async function openDetail(userId) {
+    setDetailLoading(true);
+    setShowDetailModal(true);
+    setDetailUser(null);
+    setDetailUserPayments([]);
+    try {
+      const [userResp, payResp] = await Promise.all([
+        api.get(`/admin/users/${userId}`),
+        api.get(`/admin/users/${userId}/payments`),
+      ]);
+      setDetailUser(userResp.data.user);
+      setDetailUserPayments(payResp.data.items || []);
+    } catch {
+      setGlobalMsg({ type: 'error', text: 'Failed to load user details' });
+      setTimeout(() => setGlobalMsg(null), 3000);
+    }
+    setDetailLoading(false);
+  }
+
+  function closeDetail() {
+    setShowDetailModal(false);
+    setDetailUser(null);
+    setDetailUserPayments([]);
+  }
+
+  function openEdit(user) {
+    setEditUserData(JSON.parse(JSON.stringify(user)));
+    setShowEditModal(true);
+  }
+
+  function closeEdit() {
+    setShowEditModal(false);
+    setEditUserData(null);
+  }
+
+  async function handleUpdateUser() {
+    if (!editUserData) return;
+    try {
+      const payload = {
+        fullName: editUserData.fullName,
+        email: editUserData.email,
+        phone: editUserData.phone,
+        role: editUserData.role,
+        verificationStatus: editUserData.verificationStatus,
+        verificationNotes: editUserData.verificationNotes,
+        suspended: editUserData.suspended,
+        suspensionReason: editUserData.suspensionReason,
+        trustScore: editUserData.trustScore,
+        badges: editUserData.badges,
+      };
+      if (editUserData.student) payload.student = editUserData.student;
+      if (editUserData.corper) payload.corper = editUserData.corper;
+      if (editUserData.landlord) payload.landlord = editUserData.landlord;
+      await api.put(`/admin/users/${editUserData._id}`, payload);
+      setGlobalMsg({ type: 'success', text: 'User updated' });
+      setTimeout(() => setGlobalMsg(null), 3000);
+      closeEdit();
+      openDetail(editUserData._id);
+      fetchSection('users');
+    } catch (err) {
+      setGlobalMsg({ type: 'error', text: err?.response?.data?.error || 'Update failed' });
+      setTimeout(() => setGlobalMsg(null), 3000);
+    }
+  }
+
+  async function handleDeleteUser(userId) {
+    if (confirmDelete !== userId) { setConfirmDelete(userId); return; }
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setGlobalMsg({ type: 'success', text: 'User deleted' });
+      setTimeout(() => setGlobalMsg(null), 3000);
+      setConfirmDelete(null);
+      closeDetail();
+      fetchSection('users');
+    } catch (err) {
+      setGlobalMsg({ type: 'error', text: err?.response?.data?.error || 'Delete failed' });
+      setTimeout(() => setGlobalMsg(null), 3000);
     }
   }
 
@@ -354,6 +442,11 @@ export default function SecureAdmin() {
                   page={userPage}
                   onPage={setUserPage}
                   doAction={doAction}
+                  onView={openDetail}
+                  onEdit={openEdit}
+                  onDelete={handleDeleteUser}
+                  confirmDelete={confirmDelete}
+                  setConfirmDelete={setConfirmDelete}
                 />
               )}
               {activeSection === 'properties' && (
@@ -382,6 +475,30 @@ export default function SecureAdmin() {
           )}
         </main>
       </div>
+
+      {/* User Detail Modal */}
+      {showDetailModal && (
+        <UserDetailModal
+          user={detailUser}
+          payments={detailUserPayments}
+          loading={detailLoading}
+          onClose={closeDetail}
+          onEdit={() => { if (detailUser) openEdit(detailUser); }}
+          onDelete={handleDeleteUser}
+          confirmDelete={confirmDelete}
+          setConfirmDelete={setConfirmDelete}
+        />
+      )}
+
+      {/* User Edit Modal */}
+      {showEditModal && editUserData && (
+        <UserEditModal
+          data={editUserData}
+          onChange={setEditUserData}
+          onSave={handleUpdateUser}
+          onClose={closeEdit}
+        />
+      )}
     </div>
   );
 }
@@ -404,11 +521,16 @@ function OverviewSection({ analytics }) {
 }
 
 /* ─── Section: Users ────────────────────────────────────────────── */
-function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAction }) {
+function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAction, onView, onEdit, onDelete, confirmDelete, setConfirmDelete }) {
   const roles = ['', 'student', 'corper', 'landlord', 'admin'];
 
   return (
     <div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-sm text-ink-500">
+          {data.total > 0 ? <><span className="font-semibold text-ink-900">{data.total}</span> total users</> : ''}
+        </p>
+      </div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
@@ -428,18 +550,26 @@ function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAc
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-ink-200 bg-ink-100 text-left text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">User</th>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Role</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Trust</th>
                     <th className="px-4 py-3">Joined</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
                   {data.items.map(u => (
                     <tr key={u._id} className="hover:bg-cream-50">
-                      <td className="px-4 py-3 font-medium text-ink-900">{u.fullName}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-bold text-white">
+                            {u.fullName?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <span className="font-medium text-ink-900">{u.fullName}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-ink-500">{u.email}</td>
                       <td className="px-4 py-3"><span className={`role-${u.role}`}>{u.role}</span></td>
                       <td className="px-4 py-3">
@@ -448,12 +578,16 @@ function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAc
                           : u.verificationStatus === 'submitted' ? <span className="badge-warn">Pending</span>
                           : <span className="badge-gray">Unverified</span>}
                       </td>
+                      <td className="px-4 py-3 text-ink-500">{u.trustScore ?? '—'}</td>
                       <td className="px-4 py-3 text-ink-500">{shortDate(u.createdAt)}</td>
                       <td className="px-4 py-3 text-right">
-                        {!u.suspended && u.role !== 'admin' && (
-                          <button onClick={() => doAction(`/admin/users/${u._id}/suspend`, `${u.fullName.split(' ')[0]} suspended`)} className="btn-danger text-xs px-3 py-1.5">Suspend</button>
-                        )}
-                        {u.suspended && <span className="text-xs text-ink-400">Suspended</span>}
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => onView(u._id)} className="btn-ghost text-xs px-2.5 py-1.5">View</button>
+                          <button onClick={() => onEdit(u)} className="btn-outline text-xs px-2.5 py-1.5">Edit</button>
+                          {!u.suspended && u.role !== 'admin' && (
+                            <button onClick={() => doAction(`/admin/users/${u._id}/suspend`, `${u.fullName.split(' ')[0]} suspended`)} className="btn-danger text-xs px-2.5 py-1.5">Suspend</button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -465,23 +599,29 @@ function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAc
             <div className="space-y-3 md:hidden">
               {data.items.map(u => (
                 <div key={u._id} className="card">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-ink-900">{u.fullName}</p>
-                      <p className="mt-0.5 text-xs text-ink-500">{u.email}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
+                      {u.fullName?.charAt(0)?.toUpperCase() || '?'}
                     </div>
-                    <span className={`role-${u.role}`}>{u.role}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink-900 truncate">{u.fullName}</p>
+                      <p className="text-xs text-ink-500 truncate">{u.email}</p>
+                    </div>
+                    <span className={`role-${u.role} shrink-0`}>{u.role}</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {u.suspended ? <span className="badge-danger">Suspended</span>
-                        : u.verificationStatus === 'approved' ? <span className="badge">Verified</span>
-                        : u.verificationStatus === 'submitted' ? <span className="badge-warn">Pending</span>
-                        : <span className="badge-gray">Unverified</span>}
-                      <span className="text-xs text-ink-400">{shortDate(u.createdAt)}</span>
-                    </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {u.suspended ? <span className="badge-danger">Suspended</span>
+                      : u.verificationStatus === 'approved' ? <span className="badge">Verified</span>
+                      : u.verificationStatus === 'submitted' ? <span className="badge-warn">Pending</span>
+                      : <span className="badge-gray">Unverified</span>}
+                    <span className="text-xs text-ink-400">Trust: {u.trustScore ?? '—'}</span>
+                    <span className="text-xs text-ink-400">{shortDate(u.createdAt)}</span>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => onView(u._id)} className="btn-ghost flex-1 text-xs">View</button>
+                    <button onClick={() => onEdit(u)} className="btn-outline flex-1 text-xs">Edit</button>
                     {!u.suspended && u.role !== 'admin' && (
-                      <button onClick={() => doAction(`/admin/users/${u._id}/suspend`, `${u.fullName.split(' ')[0]} suspended`)} className="btn-danger text-xs px-3 py-1.5">Suspend</button>
+                      <button onClick={() => doAction(`/admin/users/${u._id}/suspend`, `${u.fullName.split(' ')[0]} suspended`)} className="btn-danger flex-1 text-xs">Suspend</button>
                     )}
                   </div>
                 </div>
@@ -744,6 +884,379 @@ function AuditSection({ data }) {
         ))}
       </div>
     </>
+  );
+}
+
+/* ─── User Detail Modal ──────────────────────────────────────────── */
+function UserDetailModal({ user, payments, loading, onClose, onEdit, onDelete, confirmDelete, setConfirmDelete }) {
+  const [tab, setTab] = useState('profile');
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-lift" onClick={e => e.stopPropagation()}>
+          <LoadingSkeleton rows={8} />
+        </div>
+      </div>
+    );
+  }
+  if (!user) return null;
+
+  const tabs = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'verification', label: 'Verification' },
+    { id: 'role', label: `${user.role.charAt(0).toUpperCase() + user.role.slice(1)} Info` },
+    { id: 'wallet', label: 'Wallet' },
+    { id: 'payments', label: `Payments (${payments.length})` },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-2 pt-8 backdrop-blur-sm sm:p-6 sm:pt-12" onClick={onClose}>
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-lift" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-ink-200 px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white">
+              {user.fullName?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div>
+              <h3 className="font-bold font-display text-ink-900">{user.fullName}</h3>
+              <p className="text-xs text-ink-500">{user.email}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {user.suspended && <span className="badge-danger">Suspended</span>}
+            <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-ink-100">
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 overflow-x-auto border-b border-ink-200 px-5 py-2 sm:px-6">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                tab === t.id ? 'bg-brand-600 text-white' : 'text-ink-600 hover:bg-ink-100'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="max-h-[60vh] overflow-y-auto px-5 py-4 sm:px-6">
+          {tab === 'profile' && (
+            <div className="space-y-4">
+              <Section label="Basic Information">
+                <Row label="Full Name" value={user.fullName} />
+                <Row label="Email" value={user.email} />
+                <Row label="Phone" value={user.phone || '—'} />
+                <Row label="Role" value={<span className={`role-${user.role}`}>{user.role}</span>} />
+                <Row label="Member Since" value={shortDate(user.createdAt)} />
+              </Section>
+              <Section label="Account Status">
+                <Row label="Email Verified" value={user.isEmailVerified ? <span className="badge">Yes</span> : <span className="badge-gray">No</span>} />
+                <Row label="Suspended" value={user.suspended ? <span className="badge-danger">{user.suspensionReason || 'Yes'}</span> : <span className="badge">No</span>} />
+                <Row label="Bypass Warnings" value={user.bypassWarnings ?? 0} />
+              </Section>
+              <Section label="Reputation">
+                <Row label="Trust Score" value={user.trustScore ?? 50} />
+                <Row label="Badges" value={user.badges?.length > 0 ? user.badges.map(b => <span key={b} className="badge mr-1">{b}</span>) : <span className="text-ink-400">None</span>} />
+              </Section>
+            </div>
+          )}
+
+          {tab === 'verification' && (
+            <div className="space-y-4">
+              <Section label="Verification Status">
+                <Row label="Status" value={
+                  user.verificationStatus === 'approved' ? <span className="badge">Approved</span>
+                  : user.verificationStatus === 'submitted' ? <span className="badge-warn">Submitted</span>
+                  : user.verificationStatus === 'rejected' ? <span className="badge-danger">Rejected</span>
+                  : <span className="badge-gray">Pending</span>
+                } />
+                {user.verificationNotes && <Row label="Notes" value={user.verificationNotes} />}
+              </Section>
+              {user.documents?.length > 0 && (
+                <Section label="Documents">
+                  {user.documents.map((d, i) => (
+                    <Row key={i} label={d.kind} value={<a href={d.url} target="_blank" className="text-brand-600 underline hover:text-brand-700" rel="noreferrer">View document <Icon name="external" className="inline h-3 w-3" /></a>} />
+                  ))}
+                </Section>
+              )}
+              {user.selfieUrl && (
+                <Section label="Selfie">
+                  <a href={user.selfieUrl} target="_blank" rel="noreferrer">
+                    <img src={user.selfieUrl} alt="Selfie" className="h-24 w-24 rounded-xl object-cover shadow-soft" />
+                  </a>
+                  {user.selfieMatchScore != null && <Row label="Selfie Match" value={`${user.selfieMatchScore}%`} />}
+                </Section>
+              )}
+              {user.livenessScore != null && (
+                <Section label="Liveness">
+                  <Row label="Score" value={`${user.livenessScore}%`} />
+                  <Row label="Passed" value={user.livenessPassed ? <span className="badge">Yes</span> : <span className="badge-danger">No</span>} />
+                </Section>
+              )}
+            </div>
+          )}
+
+          {tab === 'role' && (
+            <div className="space-y-4">
+              {user.role === 'student' && (
+                <Section label="Student Information">
+                  <Row label="School" value={user.student?.schoolName || '—'} />
+                  <Row label="School Email" value={user.student?.schoolEmail || '—'} />
+                  <Row label="Email Verified" value={user.student?.schoolEmailVerified ? <span className="badge">Yes</span> : <span className="badge-gray">No</span>} />
+                  <Row label="Department" value={user.student?.department || '—'} />
+                  <Row label="Matric Number" value={user.student?.matricNumber || '—'} />
+                </Section>
+              )}
+              {user.role === 'corper' && (
+                <Section label="Corper Information">
+                  <Row label="NIN Verified" value={user.corper?.ninVerified ? <span className="badge">Yes</span> : <span className="badge-gray">No</span>} />
+                  <Row label="State Code" value={user.corper?.stateCode || '—'} />
+                  <Row label="State of Service" value={user.corper?.stateOfService || '—'} />
+                </Section>
+              )}
+              {user.role === 'landlord' && (
+                <Section label="Landlord Information">
+                  <Row label="NIN Verified" value={user.landlord?.ninVerified ? <span className="badge">Yes</span> : <span className="badge-gray">No</span>} />
+                  <Row label="Admin Approved" value={user.landlord?.adminApproved ? <span className="badge">Yes</span> : <span className="badge-warn">Pending</span>} />
+                  <Row label="Bank Name" value={user.landlord?.bankName || '—'} />
+                  <Row label="Account Name" value={user.landlord?.accountName || '—'} />
+                  <Row label="Account Number" value={user.landlord?.accountNumber || '—'} />
+                  <Row label="Bank Code" value={user.landlord?.bankCode || '—'} />
+                </Section>
+              )}
+              {user.role === 'admin' && (
+                <p className="text-sm text-ink-500">Admin account — no additional role information.</p>
+              )}
+            </div>
+          )}
+
+          {tab === 'wallet' && (
+            <div className="space-y-4">
+              <Section label="Wallet">
+                <Row label="Balance" value={<span className="text-lg font-bold text-brand-700">{naira(user.wallet?.balance || 0)}</span>} />
+              </Section>
+              {user.wallet?.transactions?.length > 0 && (
+                <Section label="Recent Transactions">
+                  {user.wallet.transactions.slice(-10).reverse().map((tx, i) => (
+                    <div key={i} className="flex items-center justify-between border-b border-ink-100 py-2 text-sm last:border-0">
+                      <div>
+                        <span className={tx.type === 'credit' ? 'text-green-600' : 'text-red-600'}>{tx.type === 'credit' ? '+' : '-'}{naira(tx.amount)}</span>
+                        <p className="text-xs text-ink-400">{tx.reason || '—'} {tx.at ? `· ${shortDate(tx.at)}` : ''}</p>
+                      </div>
+                      <span className="text-xs text-ink-400">Ref: {tx.ref?.slice(-8) || '—'}</span>
+                    </div>
+                  ))}
+                </Section>
+              )}
+              {(!user.wallet?.transactions || user.wallet.transactions.length === 0) && (
+                <p className="text-sm text-ink-500">No transactions yet.</p>
+              )}
+            </div>
+          )}
+
+          {tab === 'payments' && (
+            <div className="space-y-3">
+              {payments.length === 0 ? (
+                <p className="text-sm text-ink-500">No payments found for this user.</p>
+              ) : (
+                payments.map(p => (
+                  <div key={p._id} className="rounded-xl border border-ink-200 bg-ink-50/50 p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-ink-900">{p.property?.title || 'Unknown property'}</p>
+                        <p className="mt-0.5 text-xs text-ink-500">
+                          {p.tenant?._id === user._id ? 'As tenant' : 'As landlord'} · {naira(p.totalDue)}
+                        </p>
+                      </div>
+                      {p.escrowStatus === 'fully_funded' ? <span className="badge">Funded</span>
+                        : p.escrowStatus === 'released' ? <span className="badge">Released</span>
+                        : p.escrowStatus === 'refunded' ? <span className="badge-gray">Refunded</span>
+                        : p.escrowStatus === 'disputed' ? <span className="badge-warn">Disputed</span>
+                        : <span className="badge-gray">{p.escrowStatus}</span>}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-ink-400">
+                      <span>Rent: {naira(p.rentAmount)}</span>
+                      <span>Service: {naira(p.serviceCharge)}</span>
+                      <span>Caution: {naira(p.cautionFee)}</span>
+                      <span>Mode: {p.paymentMode}</span>
+                      <span>{shortDate(p.createdAt)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="flex items-center justify-between border-t border-ink-200 px-5 py-4 sm:px-6">
+          <div>
+            {confirmDelete === user._id ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-red-600">Confirm delete?</span>
+                <button onClick={() => onDelete(user._id)} className="btn-danger text-xs px-3 py-1.5">Yes, delete</button>
+                <button onClick={() => setConfirmDelete(null)} className="btn-outline text-xs px-3 py-1.5">Cancel</button>
+              </div>
+            ) : (
+              <button onClick={() => onDelete(user._id)} className="btn-danger text-xs px-3 py-1.5">Delete user</button>
+            )}
+          </div>
+          <button onClick={onEdit} className="btn-primary text-sm">Edit profile</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({ label, children }) {
+  return (
+    <div>
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">{label}</h4>
+      <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4">{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div className="flex items-center justify-between border-b border-ink-100 py-2 text-sm last:border-0">
+      <span className="text-ink-500">{label}</span>
+      <span className="ml-4 text-right font-medium text-ink-900">{value}</span>
+    </div>
+  );
+}
+
+/* ─── User Edit Modal ───────────────────────────────────────────── */
+function UserEditModal({ data, onChange, onSave, onClose }) {
+  const [saving, setSaving] = useState(false);
+
+  function set(field, value) {
+    onChange({ ...data, [field]: value });
+  }
+
+  function setNested(obj, field, value) {
+    onChange({ ...data, [obj]: { ...data[obj], [field]: value } });
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    await onSave();
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-2 pt-8 backdrop-blur-sm sm:p-6 sm:pt-12" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-lift" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-ink-200 px-5 py-4 sm:px-6">
+          <h3 className="font-bold font-display text-ink-900">Edit User</h3>
+          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-ink-100">
+            <Icon name="close" className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="max-h-[65vh] overflow-y-auto px-5 py-4 sm:px-6">
+          <div className="space-y-4">
+            <Field label="Full Name" value={data.fullName} onChange={v => set('fullName', v)} />
+            <Field label="Email" value={data.email} onChange={v => set('email', v)} type="email" />
+            <Field label="Phone" value={data.phone || ''} onChange={v => set('phone', v)} />
+
+            <div>
+              <label className="label">Role</label>
+              <select className="input" value={data.role} onChange={e => set('role', e.target.value)}>
+                {['student', 'corper', 'landlord', 'admin'].map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Verification Status</label>
+              <select className="input" value={data.verificationStatus || 'pending'} onChange={e => set('verificationStatus', e.target.value)}>
+                {['pending', 'submitted', 'approved', 'rejected'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              </select>
+            </div>
+
+            {data.verificationStatus === 'rejected' && (
+              <Field label="Verification Notes" value={data.verificationNotes || ''} onChange={v => set('verificationNotes', v)} />
+            )}
+
+            <div className="flex items-center gap-3">
+              <label className="label mb-0">Suspended</label>
+              <input type="checkbox" checked={!!data.suspended} onChange={e => set('suspended', e.target.checked)} className="h-5 w-5 rounded border-ink-300 text-brand-600 focus:ring-brand-500" />
+              {data.suspended && (
+                <input className="input flex-1" placeholder="Reason" value={data.suspensionReason || ''} onChange={e => set('suspensionReason', e.target.value)} />
+              )}
+            </div>
+
+            <div>
+              <label className="label">Trust Score (0–100)</label>
+              <input className="input" type="number" min="0" max="100" value={data.trustScore ?? 50} onChange={e => set('trustScore', Number(e.target.value))} />
+            </div>
+
+            <div>
+              <label className="label">Badges (comma-separated)</label>
+              <input className="input" value={(data.badges || []).join(', ')} onChange={e => set('badges', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
+            </div>
+
+            {data.role === 'student' && (
+              <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Student Info</p>
+                <Field label="School Name" value={data.student?.schoolName || ''} onChange={v => setNested('student', 'schoolName', v)} />
+                <Field label="School Email" value={data.student?.schoolEmail || ''} onChange={v => setNested('student', 'schoolEmail', v)} />
+                <Field label="Department" value={data.student?.department || ''} onChange={v => setNested('student', 'department', v)} />
+                <Field label="Matric Number" value={data.student?.matricNumber || ''} onChange={v => setNested('student', 'matricNumber', v)} />
+              </div>
+            )}
+
+            {data.role === 'corper' && (
+              <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Corper Info</p>
+                <Field label="State Code" value={data.corper?.stateCode || ''} onChange={v => setNested('corper', 'stateCode', v)} />
+                <Field label="State of Service" value={data.corper?.stateOfService || ''} onChange={v => setNested('corper', 'stateOfService', v)} />
+              </div>
+            )}
+
+            {data.role === 'landlord' && (
+              <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Landlord Info</p>
+                <Field label="Bank Name" value={data.landlord?.bankName || ''} onChange={v => setNested('landlord', 'bankName', v)} />
+                <Field label="Account Name" value={data.landlord?.accountName || ''} onChange={v => setNested('landlord', 'accountName', v)} />
+                <Field label="Account Number" value={data.landlord?.accountNumber || ''} onChange={v => setNested('landlord', 'accountNumber', v)} />
+                <div>
+                  <label className="label">Admin Approved</label>
+                  <select className="input" value={data.landlord?.adminApproved ? 'true' : 'false'} onChange={e => setNested('landlord', 'adminApproved', e.target.value === 'true')}>
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        </form>
+
+        <div className="flex justify-end gap-2 border-t border-ink-200 px-5 py-4 sm:px-6">
+          <button onClick={onClose} className="btn-outline">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary">
+            {saving ? <span className="spinner" /> : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, type = 'text' }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <input className="input" type={type} value={value} onChange={e => onChange(e.target.value)} />
+    </div>
   );
 }
 

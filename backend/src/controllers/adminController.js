@@ -192,6 +192,77 @@ async function runJob(req, res) {
   } catch (e) { res.status(400).json({ error: e.message }); }
 }
 
+async function getUserDetail(req, res) {
+  const user = await User.findById(req.params.userId).select('-password');
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ user });
+}
+
+async function updateUser(req, res) {
+  const user = await User.findById(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const allowed = ['fullName', 'email', 'phone', 'role', 'verificationStatus', 'verificationNotes', 'suspended', 'suspensionReason', 'trustScore', 'badges'];
+  for (const field of allowed) {
+    if (req.body[field] !== undefined) {
+      if (field === 'badges' && Array.isArray(req.body[field])) {
+        user.badges = req.body[field];
+      } else {
+        user[field] = req.body[field];
+      }
+    }
+  }
+
+  if (req.body.student && user.role === 'student') {
+    const s = user.student || {};
+    ['schoolName', 'schoolEmail', 'department', 'matricNumber'].forEach(f => {
+      if (req.body.student[f] !== undefined) s[f] = req.body.student[f];
+    });
+    user.student = s;
+  }
+
+  if (req.body.corper && user.role === 'corper') {
+    const c = user.corper || {};
+    ['stateCode', 'stateOfService'].forEach(f => {
+      if (req.body.corper[f] !== undefined) c[f] = req.body.corper[f];
+    });
+    user.corper = c;
+  }
+
+  if (req.body.landlord && user.role === 'landlord') {
+    const l = user.landlord || {};
+    ['bankCode', 'bankName', 'accountNumber', 'accountName', 'adminApproved'].forEach(f => {
+      if (req.body.landlord[f] !== undefined) l[f] = req.body.landlord[f];
+    });
+    user.landlord = l;
+  }
+
+  await user.save();
+  audit(req, 'admin.user.update', { kind: 'User', id: user._id }, req.body);
+  const updated = await User.findById(user._id).select('-password');
+  res.json({ user: updated });
+}
+
+async function deleteUser(req, res) {
+  const user = await User.findById(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete admin accounts' });
+  await User.deleteOne({ _id: user._id });
+  audit(req, 'admin.user.delete', { kind: 'User', id: user._id }, {});
+  res.json({ ok: true });
+}
+
+async function getUserPayments(req, res) {
+  const items = await Payment.find({
+    $or: [{ tenant: req.params.userId }, { landlord: req.params.userId }],
+  })
+    .populate('property', 'title area annualRent')
+    .populate('tenant', 'fullName email')
+    .populate('landlord', 'fullName email')
+    .sort({ createdAt: -1 });
+  res.json({ items });
+}
+
 module.exports = {
   pendingVerifications,
   decideVerification,
@@ -204,6 +275,10 @@ module.exports = {
   analytics,
   listUsers,
   listAllProperties,
+  getUserDetail,
+  updateUser,
+  deleteUser,
+  getUserPayments,
   auditFeed,
   auditForActor,
   auditForTarget,
