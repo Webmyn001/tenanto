@@ -112,7 +112,7 @@ export default function SecureAdmin() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editUserData, setEditUserData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const [searchUser, setSearchUser] = useState('');
   const [userRole, setUserRole] = useState('');
@@ -294,19 +294,47 @@ export default function SecureAdmin() {
     }
   }
 
-  async function handleDeleteUser(userId) {
-    if (confirmDelete !== userId) { setConfirmDelete(userId); return; }
-    try {
-      await api.delete(`/admin/users/${userId}`);
-      setGlobalMsg({ type: 'success', text: 'User deleted' });
-      setTimeout(() => setGlobalMsg(null), 3000);
-      setConfirmDelete(null);
-      closeDetail();
-      fetchSection('users');
-    } catch (err) {
-      setGlobalMsg({ type: 'error', text: err?.response?.data?.error || 'Delete failed' });
-      setTimeout(() => setGlobalMsg(null), 3000);
-    }
+  function requestConfirm({ title, message, word, onConfirm }) {
+    setConfirmAction({ title, message, word, onConfirm, step: 1, input: '' });
+  }
+
+  function requestDelete(userId, userName) {
+    requestConfirm({
+      title: 'Delete user',
+      message: `Are you sure you want to permanently delete ${userName}? This action cannot be undone. All data associated with this account will be lost.`,
+      word: 'DELETE',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/users/${userId}`);
+          setGlobalMsg({ type: 'success', text: 'User deleted' });
+          setTimeout(() => setGlobalMsg(null), 3000);
+          closeDetail();
+          fetchSection('users');
+        } catch (err) {
+          setGlobalMsg({ type: 'error', text: err?.response?.data?.error || 'Delete failed' });
+          setTimeout(() => setGlobalMsg(null), 3000);
+        }
+      },
+    });
+  }
+
+  function requestSuspend(userId, userName) {
+    requestConfirm({
+      title: 'Suspend user',
+      message: `Are you sure you want to suspend ${userName}? They will lose access to their account and won't be able to log in.`,
+      word: 'SUSPEND',
+      onConfirm: async () => {
+        try {
+          await api.post(`/admin/users/${userId}/suspend`);
+          setGlobalMsg({ type: 'success', text: `${userName.split(' ')[0]} suspended` });
+          setTimeout(() => setGlobalMsg(null), 3000);
+          fetchSection(activeSection);
+        } catch (err) {
+          setGlobalMsg({ type: 'error', text: err?.response?.data?.error || 'Suspend failed' });
+          setTimeout(() => setGlobalMsg(null), 3000);
+        }
+      },
+    });
   }
 
   const navItems = [
@@ -446,12 +474,10 @@ export default function SecureAdmin() {
                   onRole={setUserRole}
                   page={userPage}
                   onPage={setUserPage}
-                  doAction={doAction}
                   onView={openDetail}
                   onEdit={openEdit}
-                  onDelete={handleDeleteUser}
-                  confirmDelete={confirmDelete}
-                  setConfirmDelete={setConfirmDelete}
+                  onDelete={requestDelete}
+                  onSuspend={requestSuspend}
                 />
               )}
               {activeSection === 'properties' && (
@@ -473,7 +499,7 @@ export default function SecureAdmin() {
                 <DisputesSection data={disputes} doAction={doAction} />
               )}
               {activeSection === 'fraud' && (
-                <FraudSection data={fraud} doAction={doAction} />
+                <FraudSection data={fraud} onSuspend={requestSuspend} />
               )}
               {activeSection === 'audit' && <AuditSection data={audit} />}
             </>
@@ -489,9 +515,7 @@ export default function SecureAdmin() {
           loading={detailLoading}
           onClose={closeDetail}
           onEdit={() => { if (detailUser) openEdit(detailUser); }}
-          onDelete={handleDeleteUser}
-          confirmDelete={confirmDelete}
-          setConfirmDelete={setConfirmDelete}
+          onDelete={requestDelete}
         />
       )}
 
@@ -502,6 +526,15 @@ export default function SecureAdmin() {
           onChange={setEditUserData}
           onSave={handleUpdateUser}
           onClose={closeEdit}
+        />
+      )}
+
+      {/* Confirmation Dialog (delete / suspend) */}
+      {confirmAction && (
+        <ConfirmActionDialog
+          action={confirmAction}
+          onChange={setConfirmAction}
+          onClose={() => setConfirmAction(null)}
         />
       )}
     </div>
@@ -616,7 +649,7 @@ function TrendChart({ data }) {
 }
 
 /* ─── Section: Users ────────────────────────────────────────────── */
-function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAction, onView, onEdit, onDelete, confirmDelete, setConfirmDelete }) {
+function UsersSection({ data, search, onSearch, role, onRole, page, onPage, onView, onEdit, onDelete, onSuspend }) {
   const roles = ['', 'student', 'corper', 'landlord', 'admin'];
 
   return (
@@ -680,7 +713,7 @@ function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAc
                           <button onClick={() => onView(u._id)} className="btn-ghost text-xs px-2.5 py-1.5">View</button>
                           <button onClick={() => onEdit(u)} className="btn-outline text-xs px-2.5 py-1.5">Edit</button>
                           {!u.suspended && u.role !== 'admin' && (
-                            <button onClick={() => doAction(`/admin/users/${u._id}/suspend`, `${u.fullName.split(' ')[0]} suspended`)} className="btn-danger text-xs px-2.5 py-1.5">Suspend</button>
+                            <button onClick={() => onSuspend(u._id, u.fullName)} className="btn-danger text-xs px-2.5 py-1.5">Suspend</button>
                           )}
                         </div>
                       </td>
@@ -716,7 +749,7 @@ function UsersSection({ data, search, onSearch, role, onRole, page, onPage, doAc
                     <button onClick={() => onView(u._id)} className="btn-ghost flex-1 text-xs">View</button>
                     <button onClick={() => onEdit(u)} className="btn-outline flex-1 text-xs">Edit</button>
                     {!u.suspended && u.role !== 'admin' && (
-                      <button onClick={() => doAction(`/admin/users/${u._id}/suspend`, `${u.fullName.split(' ')[0]} suspended`)} className="btn-danger flex-1 text-xs">Suspend</button>
+                      <button onClick={() => onSuspend(u._id, u.fullName)} className="btn-danger flex-1 text-xs">Suspend</button>
                     )}
                   </div>
                 </div>
@@ -891,7 +924,7 @@ function DisputesSection({ data, doAction }) {
 }
 
 /* ─── Section: Fraud ─────────────────────────────────────────────── */
-function FraudSection({ data, doAction }) {
+function FraudSection({ data, onSuspend }) {
   if (data.items.length === 0) return <EmptyState message="No flagged conversations" icon="fraud" />;
 
   return (
@@ -911,7 +944,7 @@ function FraudSection({ data, doAction }) {
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {c.participants?.map(p => (
-              <button key={p._id} onClick={() => doAction(`/admin/users/${p._id}/suspend`, `${p.fullName.split(' ')[0]} suspended`)} className="btn-danger text-xs px-3 py-1.5">
+              <button key={p._id} onClick={() => onSuspend(p._id, p.fullName)} className="btn-danger text-xs px-3 py-1.5">
                 Suspend {p.fullName.split(' ')[0]}
               </button>
             ))}
@@ -983,7 +1016,7 @@ function AuditSection({ data }) {
 }
 
 /* ─── User Detail Modal ──────────────────────────────────────────── */
-function UserDetailModal({ user, payments, loading, onClose, onEdit, onDelete, confirmDelete, setConfirmDelete }) {
+function UserDetailModal({ user, payments, loading, onClose, onEdit, onDelete }) {
   const [tab, setTab] = useState('profile');
 
   if (loading) {
@@ -1192,17 +1225,7 @@ function UserDetailModal({ user, payments, loading, onClose, onEdit, onDelete, c
 
         {/* Footer actions */}
         <div className="flex items-center justify-between border-t border-ink-200 px-5 py-4 sm:px-6">
-          <div>
-            {confirmDelete === user._id ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-red-600">Confirm delete?</span>
-                <button onClick={() => onDelete(user._id)} className="btn-danger text-xs px-3 py-1.5">Yes, delete</button>
-                <button onClick={() => setConfirmDelete(null)} className="btn-outline text-xs px-3 py-1.5">Cancel</button>
-              </div>
-            ) : (
-              <button onClick={() => onDelete(user._id)} className="btn-danger text-xs px-3 py-1.5">Delete user</button>
-            )}
-          </div>
+          <button onClick={() => onDelete(user._id, user.fullName)} className="btn-danger text-xs px-3 py-1.5">Delete user</button>
           <button onClick={onEdit} className="btn-primary text-sm">Edit profile</button>
         </div>
       </div>
@@ -1351,6 +1374,67 @@ function Field({ label, value, onChange, type = 'text' }) {
     <div>
       <label className="label">{label}</label>
       <input className="input" type={type} value={value} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+/* ─── Confirm Action Dialog (2-step) ───────────────────────────── */
+function ConfirmActionDialog({ action, onChange, onClose }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleContinue() {
+    onChange({ ...action, step: 2 });
+  }
+
+  async function handleConfirm() {
+    if (action.input !== action.word) return;
+    setSubmitting(true);
+    await action.onConfirm();
+    setSubmitting(false);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lift" onClick={e => e.stopPropagation()}>
+        {action.step === 1 ? (
+          <>
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-600">
+              <Icon name="warning" className="h-6 w-6" />
+            </div>
+            <h3 className="mb-2 text-center text-lg font-bold font-display text-ink-900">{action.title}</h3>
+            <p className="mb-6 text-center text-sm text-ink-600">{action.message}</p>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="btn-outline flex-1">Cancel</button>
+              <button onClick={handleContinue} className="btn-danger flex-1">Continue</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="mb-1 text-lg font-bold font-display text-ink-900">Confirm {action.title.toLowerCase()}</h3>
+            <p className="mb-4 text-sm text-ink-600">
+              Type <strong className="text-red-600">{action.word}</strong> below to confirm.
+            </p>
+            <input
+              className="input mb-4 text-center text-lg font-bold tracking-widest uppercase"
+              placeholder={action.word}
+              value={action.input}
+              onChange={e => onChange({ ...action, input: e.target.value })}
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={onClose} className="btn-outline flex-1">Cancel</button>
+              <button
+                onClick={handleConfirm}
+                disabled={action.input !== action.word || submitting}
+                className="btn-danger flex-1"
+              >
+                {submitting ? <span className="spinner" /> : 'Confirm'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
