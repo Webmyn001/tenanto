@@ -105,6 +105,43 @@ async function suspendUser(req, res) {
   res.json({ user });
 }
 
+async function listUsers(req, res) {
+  const { role, verificationStatus, suspended, search, page = 1, limit = 50 } = req.query;
+  const filter = {};
+  if (role) filter.role = role;
+  if (verificationStatus) filter.verificationStatus = verificationStatus;
+  if (suspended !== undefined) filter.suspended = suspended === 'true';
+  if (search) {
+    filter.$or = [
+      { fullName: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+    ];
+  }
+  const skip = (Math.max(1, Number(page)) - 1) * Math.min(Number(limit), 100);
+  const [items, total] = await Promise.all([
+    User.find(filter).select('-password').sort({ createdAt: -1 }).skip(skip).limit(Math.min(Number(limit), 100)),
+    User.countDocuments(filter),
+  ]);
+  res.json({ items, total, page: Number(page), pages: Math.ceil(total / Math.min(Number(limit), 100)) });
+}
+
+async function listAllProperties(req, res) {
+  const { status, search, page = 1, limit = 50 } = req.query;
+  const filter = {};
+  if (status) filter.status = status;
+  if (search) filter.title = { $regex: search, $options: 'i' };
+  const skip = (Math.max(1, Number(page)) - 1) * Math.min(Number(limit), 100);
+  const [items, total] = await Promise.all([
+    Property.find(filter)
+      .populate('landlord', 'fullName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Math.min(Number(limit), 100)),
+    Property.countDocuments(filter),
+  ]);
+  res.json({ items, total, page: Number(page), pages: Math.ceil(total / Math.min(Number(limit), 100)) });
+}
+
 async function analytics(_req, res) {
   const [users, listings, activeListings, payments, escrowed] = await Promise.all([
     User.countDocuments(),
@@ -165,6 +202,8 @@ module.exports = {
   fraudFeed,
   suspendUser,
   analytics,
+  listUsers,
+  listAllProperties,
   auditFeed,
   auditForActor,
   auditForTarget,

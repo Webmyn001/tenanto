@@ -121,6 +121,8 @@ router.post('/admin/disputes/:id', requireAuth, requireRole('admin'), admin.reso
 router.get('/admin/fraud', requireAuth, requireRole('admin'), admin.fraudFeed);
 router.post('/admin/users/:userId/suspend', requireAuth, requireRole('admin'), admin.suspendUser);
 router.get('/admin/analytics', requireAuth, requireRole('admin'), admin.analytics);
+router.get('/admin/users', requireAuth, requireRole('admin'), admin.listUsers);
+router.get('/admin/properties', requireAuth, requireRole('admin'), admin.listAllProperties);
 router.get('/admin/audit', requireAuth, requireRole('admin'), admin.auditFeed);
 router.get('/admin/audit/user/:userId', requireAuth, requireRole('admin'), admin.auditForActor);
 router.get('/admin/audit/target/:kind/:id', requireAuth, requireRole('admin'), admin.auditForTarget);
