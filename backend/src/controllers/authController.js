@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 const { sign } = require('../utils/jwt');
 const { stateFromNyscCode } = require('../utils/nin');
 const { sendMail } = require('../utils/email');
@@ -272,6 +273,10 @@ async function adminLogin(req, res) {
     await user.save();
   }
 
-  const token = sign({ id: user._id.toString(), role: user.role });
+  const token = jwt.sign(
+    { id: user._id.toString(), role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '30m' }
+  );
   res.json({ token, user: publicUser(user) });
 }
