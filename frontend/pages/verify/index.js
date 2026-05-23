@@ -3,6 +3,7 @@ import Layout from '../../components/Layout';
 import VerificationBadge from '../../components/VerificationBadge';
 import api, { getUser, saveAuth, getToken } from '../../lib/api';
 import { compressImage } from '../../lib/image';
+import { validateNIN } from '../../lib/validation';
 
 export default function VerifyPage() {
   const [user, setUser] = useState(null);
@@ -52,7 +53,12 @@ export default function VerifyPage() {
     setUser(data.user);
   }
 
+  const [ninErr, setNinErr] = useState('');
+
   async function submitNIN() {
+    const check = validateNIN(nin);
+    if (!check.ok) { setNinErr(check.msg); return; }
+    setNinErr('');
     setMsg(''); setLoading({ ...loading, nin: true });
     try {
       await api.post('/verify/nin', { nin });
@@ -165,9 +171,10 @@ export default function VerifyPage() {
               </div>
             ) : (
               <>
-                <p className="mt-1 text-sm text-gray-600">In dev, use any 11-digit number ending in an even digit.</p>
-                <input className="input mt-3" placeholder="11-digit NIN" value={nin} onChange={(e) => setNin(e.target.value)} />
-                <button onClick={submitNIN} disabled={loading.nin} className="btn-primary mt-3 w-full">
+                <p className="mt-1 text-sm text-gray-600">Enter your 11-digit National Identification Number.</p>
+                <input className={`input mt-3 ${ninErr ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="11-digit NIN" maxLength={11} value={nin} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 11); setNin(v); if (ninErr) setNinErr(''); }} />
+                {ninErr && <p className="mt-1 text-xs text-red-600">{ninErr}</p>}
+                <button onClick={submitNIN} disabled={loading.nin || nin.length !== 11} className="btn-primary mt-3 w-full">
                   {loading.nin ? <span className="spinner" /> : 'Verify NIN'}
                 </button>
               </>

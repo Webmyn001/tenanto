@@ -4,6 +4,9 @@ const { sign } = require('../utils/jwt');
 const { stateFromNyscCode } = require('../utils/nin');
 const { sendMail } = require('../utils/email');
 
+const PHONE_RE = /^(\+?234|0)[789]\d{9}$/;
+const STATECODE_RE = /^[A-Za-z]{2}\/\d{1,2}[A-Za-z]\/\d{3,}$/;
+
 function publicUser(u) {
   const obj = u.toObject();
   delete obj.password;
@@ -17,6 +20,12 @@ async function register(req, res) {
   }
   if (!acceptTerms) {
     return res.status(400).json({ error: 'You must accept the Terms of Service to register' });
+  }
+  if (phone && !PHONE_RE.test(phone)) {
+    return res.status(400).json({ error: 'Enter a valid Nigerian phone number (e.g. 08031234567)' });
+  }
+  if (role === 'corper' && extras.stateCode && !STATECODE_RE.test(extras.stateCode)) {
+    return res.status(400).json({ error: 'Invalid state code format — use e.g. OY/24A/1234' });
   }
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) return res.status(409).json({ error: 'Email already registered' });
@@ -222,7 +231,13 @@ async function updateProfile(req, res) {
 
   const { fullName, phone, student, corper, landlord } = req.body;
   if (fullName !== undefined) user.fullName = fullName;
-  if (phone !== undefined) user.phone = phone;
+  if (phone !== undefined) {
+    if (!PHONE_RE.test(phone)) return res.status(400).json({ error: 'Enter a valid Nigerian phone number (e.g. 08031234567)' });
+    user.phone = phone;
+  }
+  if (corper?.stateCode && !STATECODE_RE.test(corper.stateCode)) {
+    return res.status(400).json({ error: 'Invalid state code format — use e.g. OY/24A/1234' });
+  }
 
   if (user.role === 'student' && student) {
     user.student = {

@@ -22,7 +22,16 @@ export default function SchoolSelect({ value, onChange, required }) {
   }, []);
 
   const filtered = filter
-    ? schools.filter((s) => (s.name + ' ' + s.short).toLowerCase().includes(filter.toLowerCase()))
+    ? schools
+        .filter((s) => (s.name + ' ' + s.short).toLowerCase().includes(filter.toLowerCase()))
+        .sort((a, b) => {
+          const f = filter.toLowerCase();
+          const aStarts = a.name.toLowerCase().startsWith(f) || a.short.toLowerCase().startsWith(f);
+          const bStarts = b.name.toLowerCase().startsWith(f) || b.short.toLowerCase().startsWith(f);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return a.name.localeCompare(b.name);
+        })
     : schools;
 
   return (

@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import SchoolSelect from '../components/SchoolSelect';
 import StateSelect from '../components/StateSelect';
 import api, { getUser, saveAuth, getToken } from '../lib/api';
+import { validatePhone, validateStateCode, formatStateCode } from '../lib/validation';
 
 export default function Settings() {
   const [user, setUser] = useState(null);
@@ -15,6 +16,7 @@ export default function Settings() {
     stateCode: '',
     stateOfService: '',
   });
+  const [fieldErr, setFieldErr] = useState({});
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
@@ -47,9 +49,22 @@ export default function Settings() {
 
   const isApproved = user.verificationStatus === 'approved';
 
+  function validate() {
+    const errs = {};
+    const phoneVal = validatePhone(form.phone);
+    if (!phoneVal.ok) errs.phone = phoneVal.msg;
+    if (user.role === 'corper') {
+      const codeVal = validateStateCode(form.stateCode);
+      if (!codeVal.ok) errs.stateCode = codeVal.msg;
+    }
+    setFieldErr(errs);
+    return Object.keys(errs).length === 0;
+  }
+
   async function submit(e) {
     e.preventDefault();
     if (isApproved) return;
+    if (!validate()) return;
     setLoading(true);
     setMsg('');
     setErr('');
@@ -74,7 +89,6 @@ export default function Settings() {
 
     try {
       const { data } = await api.put('/auth/profile', payload);
-      // Fetch latest profile state to sync all fields properly
       const meRes = await api.get('/auth/me');
       saveAuth(getToken(), meRes.data.user);
       setUser(meRes.data.user);
@@ -160,11 +174,13 @@ export default function Settings() {
           <div>
             <label className="label">Phone number</label>
             <input 
-              className="input" 
+              className={`input ${fieldErr.phone && !isApproved ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+              placeholder="e.g. 08031234567" 
               value={form.phone} 
-              onChange={(e) => setForm({ ...form, phone: e.target.value })} 
+              onChange={(e) => { setForm({ ...form, phone: e.target.value }); if (fieldErr.phone) setFieldErr({ ...fieldErr, phone: '' }); }} 
               disabled={isApproved}
             />
+            {fieldErr.phone && !isApproved && <p className="mt-1 text-xs text-red-600">{fieldErr.phone}</p>}
           </div>
 
           <div>
@@ -229,11 +245,13 @@ export default function Settings() {
               <div>
                 <label className="label">State code</label>
                 <input 
-                  className="input" 
+                  className={`input ${fieldErr.stateCode && !isApproved ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                  placeholder="e.g. OY/24A/1234" 
                   value={form.stateCode} 
-                  onChange={(e) => setForm({ ...form, stateCode: e.target.value })} 
+                  onChange={(e) => { const v = formatStateCode(e.target.value); setForm({ ...form, stateCode: v }); if (fieldErr.stateCode) setFieldErr({ ...fieldErr, stateCode: '' }); }} 
                   disabled={isApproved}
                 />
+                {fieldErr.stateCode && !isApproved && <p className="mt-1 text-xs text-red-600">{fieldErr.stateCode}</p>}
               </div>
 
               <div>

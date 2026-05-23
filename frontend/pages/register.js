@@ -5,7 +5,9 @@ import Layout from '../components/Layout';
 import SchoolSelect from '../components/SchoolSelect';
 import StateSelect from '../components/StateSelect';
 import api, { saveAuth } from '../lib/api';
+import { validatePhone, validateStateCode, formatStateCode } from '../lib/validation';
 
+const FIELD_ERR_INIT = {};
 export default function Register() {
   const router = useRouter();
   const [role, setRole] = useState('student');
@@ -15,6 +17,7 @@ export default function Register() {
     stateCode: '', stateOfService: '',
     acceptTerms: false,
   });
+  const [fieldErr, setFieldErr] = useState({});
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,12 +33,23 @@ export default function Register() {
   };
   const progress = getProgressPercentage();
 
+  function validate() {
+    const errs = {};
+    const phoneVal = validatePhone(form.phone);
+    if (!phoneVal.ok) errs.phone = phoneVal.msg;
+    if (role === 'corper') {
+      const codeVal = validateStateCode(form.stateCode);
+      if (!codeVal.ok) errs.stateCode = codeVal.msg;
+    }
+    setFieldErr(errs);
+    return Object.keys(errs).length === 0;
+  }
+
   async function submit(e) {
     e.preventDefault(); setErr(''); setLoading(true);
+    if (!validate()) { setLoading(false); return; }
     try {
       const { data } = await api.post('/auth/register', { ...form, role });
-      // We don't saveAuth yet because they need to verify email first to fully "log in"
-      // saveAuth(data.token, data.user); 
       router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
     } catch (e) {
       setErr(e?.response?.data?.error || 'Registration failed');
@@ -89,7 +103,8 @@ export default function Register() {
             <div><label className="label">Email</label>
               <input type="email" className="input" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div><label className="label">Phone</label>
-              <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <input className={`input ${fieldErr.phone ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="e.g. 08031234567" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); if (fieldErr.phone) setFieldErr({ ...fieldErr, phone: '' }); }} />
+              {fieldErr.phone && <p className="mt-1 text-xs text-red-600">{fieldErr.phone}</p>}</div>
             <div className="md:col-span-2"><label className="label">Password</label>
               <input type="password" className="input" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
 
@@ -108,7 +123,8 @@ export default function Register() {
             {role === 'corper' && (
               <>
                 <div><label className="label">State code</label>
-                  <input className="input" placeholder="e.g. OY/24A/1234" value={form.stateCode} onChange={(e) => setForm({ ...form, stateCode: e.target.value })} /></div>
+                  <input className={`input ${fieldErr.stateCode ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="e.g. OY/24A/1234" value={form.stateCode} onChange={(e) => { const v = formatStateCode(e.target.value); setForm({ ...form, stateCode: v }); if (fieldErr.stateCode) setFieldErr({ ...fieldErr, stateCode: '' }); }} />
+                  {fieldErr.stateCode && <p className="mt-1 text-xs text-red-600">{fieldErr.stateCode}</p>}</div>
                 <div><label className="label">State of service</label>
                   <StateSelect value={form.stateOfService} onChange={(v) => setForm({ ...form, stateOfService: v })} required /></div>
               </>

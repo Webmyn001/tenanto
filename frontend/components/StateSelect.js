@@ -24,7 +24,16 @@ export default function StateSelect({ value, onChange, required }) {
   }, []);
 
   const filtered = filter
-    ? NIGERIAN_STATES.filter((s) => s.toLowerCase().includes(filter.toLowerCase()))
+    ? NIGERIAN_STATES
+        .filter((s) => s.toLowerCase().includes(filter.toLowerCase()))
+        .sort((a, b) => {
+          const f = filter.toLowerCase();
+          const aStarts = a.toLowerCase().startsWith(f);
+          const bStarts = b.toLowerCase().startsWith(f);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return a.localeCompare(b);
+        })
     : NIGERIAN_STATES;
 
   return (
