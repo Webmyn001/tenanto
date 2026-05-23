@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../../components/Layout';
 import api from '../../../lib/api';
+import { compressImage } from '../../../lib/image';
 
 const FIELDS = [
   { id: 'title', label: 'Title', type: 'text' },
@@ -23,6 +24,11 @@ export default function NewListing() {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('');
+
+  const removeMediaItem = (indexToRemove) => {
+    setMedia((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -30,12 +36,27 @@ export default function NewListing() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setLoading(true);
+    setUploadStatus('Compressing images...');
     try {
+      const compressedFiles = await Promise.all(
+        files.map(async (file) => {
+          if (file.type.startsWith('image/')) {
+            return await compressImage(file, 900);
+          }
+          return file;
+        })
+      );
+      setUploadStatus('Uploading...');
       const fd = new FormData();
-      files.forEach((f) => fd.append('files', f));
+      compressedFiles.forEach((f) => fd.append('files', f));
       const { data } = await api.post('/upload/many', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setMedia((m) => [...m, ...data.files]);
-    } finally { setLoading(false); }
+    } catch (err) {
+      setErr('Media upload failed');
+    } finally {
+      setLoading(false);
+      setUploadStatus('');
+    }
   }
 
   async function submit(e) {
@@ -113,8 +134,59 @@ export default function NewListing() {
 
         <div className="md:col-span-2 card">
           <label className="label">Media (images & videos)</label>
-          <input type="file" multiple accept="image/*,video/*" onChange={uploadMedia} />
-          <p className="mt-2 text-xs text-gray-500">Uploaded: {imageCount} images / {videoCount} videos. Need ≥ 8 images and ≥ 5 videos to publish.</p>
+          <p className="text-xs text-gray-500 mb-3">Upload property photos and videos. Max size per image: 900KB. Images are automatically compressed.</p>
+          
+          <input 
+            type="file" 
+            multiple 
+            accept="image/*,video/*" 
+            onChange={uploadMedia} 
+            disabled={loading}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 disabled:opacity-50"
+          />
+
+          {uploadStatus && (
+            <p className="mt-2 text-xs text-brand-600 font-medium flex items-center gap-1.5">
+              <span className="spinner" /> {uploadStatus}
+            </p>
+          )}
+
+          {media.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+              {media.map((item, index) => (
+                <div key={index} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-50 group">
+                  {item.type === 'video' ? (
+                    <video src={item.url} className="w-full h-full object-cover" muted />
+                  ) : (
+                    <img src={item.url} alt="listing thumbnail" className="w-full h-full object-cover" />
+                  )}
+                  <div className="absolute top-1 right-1">
+                    <button
+                      type="button"
+                      onClick={() => removeMediaItem(index)}
+                      className="p-1 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md transition duration-150"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="absolute bottom-1 left-1 bg-black/45 text-[10px] text-white px-1.5 py-0.5 rounded capitalize font-medium">
+                    {item.type}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-gray-500 font-medium">
+            Progress: {imageCount} / 8 images · {videoCount} / 5 videos
+            {imageCount >= 8 && videoCount >= 5 ? (
+              <span className="text-green-600 font-semibold ml-2">✓ Minimum requirement met</span>
+            ) : (
+              <span className="text-amber-600 font-semibold ml-2">⚠️ Need at least 8 images and 5 videos to publish</span>
+            )}
+          </p>
         </div>
 
         {err && <p className="md:col-span-2 text-sm text-red-600">{err}</p>}

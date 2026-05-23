@@ -12,12 +12,22 @@ const schoolEmailCodes = new Map();
 
 async function submitDocuments(req, res) {
   const user = req.user;
-  const { documents = [], selfieUrl, finalize = false } = req.body;
+  const { documents = [], selfieUrl, finalize = false, deleteDocumentKind, deleteSelfie } = req.body;
+
+  if (deleteDocumentKind) {
+    user.documents = user.documents.filter((d) => d.kind !== deleteDocumentKind);
+  }
+  if (deleteSelfie) {
+    user.selfieUrl = undefined;
+  }
+
   for (const d of documents) {
     if (!d.kind || !d.url) return res.status(400).json({ error: 'Each document needs kind + url' });
     user.documents.push(d);
   }
-  if (selfieUrl) user.selfieUrl = selfieUrl;
+  if (selfieUrl !== undefined) {
+    user.selfieUrl = selfieUrl || undefined;
+  }
   if (finalize) user.verificationStatus = 'submitted';
   await user.save();
 

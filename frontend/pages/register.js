@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../components/Layout';
 import SchoolSelect from '../components/SchoolSelect';
+import StateSelect from '../components/StateSelect';
 import api, { saveAuth } from '../lib/api';
 
 export default function Register() {
@@ -16,6 +17,18 @@ export default function Register() {
   });
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const getProgressPercentage = () => {
+    const fields = ['fullName', 'email', 'phone', 'password'];
+    if (role === 'student') {
+      fields.push('schoolName', 'schoolEmail', 'department', 'matricNumber');
+    } else if (role === 'corper') {
+      fields.push('stateCode', 'stateOfService');
+    }
+    const completed = fields.filter((f) => !!form[f]).length;
+    return Math.round((completed / fields.length) * 100);
+  };
+  const progress = getProgressPercentage();
 
   async function submit(e) {
     e.preventDefault(); setErr(''); setLoading(true);
@@ -57,6 +70,19 @@ export default function Register() {
             ))}
           </div>
 
+          <div className="mt-6">
+            <div className="flex items-center justify-between text-xs font-semibold text-gray-500 mb-1">
+              <span>REGISTRATION PROGRESS</span>
+              <span className="text-brand-600">{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-brand-600 transition-all duration-300 ease-out" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
           <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2"><label className="label">Full name</label>
               <input className="input" required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></div>
@@ -84,7 +110,7 @@ export default function Register() {
                 <div><label className="label">State code</label>
                   <input className="input" placeholder="e.g. OY/24A/1234" value={form.stateCode} onChange={(e) => setForm({ ...form, stateCode: e.target.value })} /></div>
                 <div><label className="label">State of service</label>
-                  <input className="input" value={form.stateOfService} onChange={(e) => setForm({ ...form, stateOfService: e.target.value })} /></div>
+                  <StateSelect value={form.stateOfService} onChange={(v) => setForm({ ...form, stateOfService: v })} required /></div>
               </>
             )}
 
@@ -103,6 +129,11 @@ export default function Register() {
             </div>
 
             {err && <p className="md:col-span-2 text-sm text-red-600">{err}</p>}
+            
+            <p className="md:col-span-2 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+              💡 <b>Note:</b> Once your verification is approved by an admin, your profile details will be locked to read-only. Any subsequent updates will require contacting the admin.
+            </p>
+
             <button disabled={loading} className="btn-primary md:col-span-2">
               {loading ? <span className="spinner mr-2" /> : 'Create account'}
             </button>

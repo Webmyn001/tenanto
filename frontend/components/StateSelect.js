@@ -1,15 +1,17 @@
-import { useEffect, useState, useRef } from 'react';
-import api from '../lib/api';
+import { useState, useRef, useEffect } from 'react';
 
-export default function SchoolSelect({ value, onChange, required }) {
-  const [schools, setSchools] = useState([]);
+const NIGERIAN_STATES = [
+  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
+  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Federal Capital Territory (FCT)',
+  'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara',
+  'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers',
+  'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+];
+
+export default function StateSelect({ value, onChange, required }) {
   const [filter, setFilter] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
-
-  useEffect(() => {
-    api.get('/lookup/schools').then(({ data }) => setSchools(data.schools)).catch(() => {});
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -22,8 +24,8 @@ export default function SchoolSelect({ value, onChange, required }) {
   }, []);
 
   const filtered = filter
-    ? schools.filter((s) => (s.name + ' ' + s.short).toLowerCase().includes(filter.toLowerCase()))
-    : schools;
+    ? NIGERIAN_STATES.filter((s) => s.toLowerCase().includes(filter.toLowerCase()))
+    : NIGERIAN_STATES;
 
   return (
     <div className="relative" ref={containerRef}>
@@ -36,7 +38,7 @@ export default function SchoolSelect({ value, onChange, required }) {
         <>
           <input
             className="input"
-            placeholder="Search schools…"
+            placeholder="Search state of service…"
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);
@@ -49,12 +51,12 @@ export default function SchoolSelect({ value, onChange, required }) {
             <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
               {filtered.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-gray-500">No matches</li>
-              ) : filtered.slice(0, 12).map((s) => (
-                <li key={s.name}>
+              ) : filtered.map((state) => (
+                <li key={state}>
                   <button type="button"
-                    onClick={() => { onChange(s.name); setFilter(''); setIsOpen(false); }}
+                    onClick={() => { onChange(state); setFilter(''); setIsOpen(false); }}
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-brand-50">
-                    {s.name} <span className="text-xs text-gray-500">· {s.short} · {s.state}</span>
+                    {state}
                   </button>
                 </li>
               ))}

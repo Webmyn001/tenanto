@@ -29,6 +29,7 @@ router.post('/auth/reset-password', rl.authLimiter, auth.resetPassword);
 router.post('/auth/verify-email', rl.authLimiter, auth.verifyEmail);
 router.post('/auth/resend-verification', rl.authLimiter, auth.resendVerification);
 router.get('/auth/me', requireAuth, auth.me);
+router.put('/auth/profile', requireAuth, auth.updateProfile);
 
 // --- Uploads (returns Cloudinary URL/publicId; client passes those to other endpoints) ---
 router.post('/upload', requireAuth, rl.uploadLimiter, upload.single('file'), uploads.uploadOne);

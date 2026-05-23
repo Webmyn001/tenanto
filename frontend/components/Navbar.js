@@ -22,6 +22,7 @@ export default function Navbar() {
       {user && ['student', 'corper'].includes(user.role) && <Link href="/roommates" className="hover:text-brand-700">Roommates</Link>}
       {user && <Link href="/chat" className="hover:text-brand-700">Messages</Link>}
       {user && <Link href={dashHref} className="hover:text-brand-700">Dashboard</Link>}
+      {user && <Link href="/settings" className="hover:text-brand-700">Settings</Link>}
     </>
   );
 

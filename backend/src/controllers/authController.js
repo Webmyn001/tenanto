@@ -213,4 +213,41 @@ async function resendVerification(req, res) {
   res.json({ message: 'Verification code resent', ...(dev && { devCode: code }) });
 }
 
-module.exports = { register, login, me, forgotPassword, resetPassword, verifyEmail, resendVerification };
+async function updateProfile(req, res) {
+  const user = req.user;
+  if (user.verificationStatus === 'approved') {
+    return res.status(403).json({ error: 'Approved accounts cannot edit profile details directly. Please contact support.' });
+  }
+
+  const { fullName, phone, student, corper, landlord } = req.body;
+  if (fullName !== undefined) user.fullName = fullName;
+  if (phone !== undefined) user.phone = phone;
+
+  if (user.role === 'student' && student) {
+    user.student = {
+      ...user.student?.toObject(),
+      schoolName: student.schoolName !== undefined ? student.schoolName : user.student?.schoolName,
+      department: student.department !== undefined ? student.department : user.student?.department,
+      matricNumber: student.matricNumber !== undefined ? student.matricNumber : user.student?.matricNumber,
+    };
+  } else if (user.role === 'corper' && corper) {
+    user.corper = {
+      ...user.corper?.toObject(),
+      stateCode: corper.stateCode !== undefined ? corper.stateCode : user.corper?.stateCode,
+      stateOfService: corper.stateOfService !== undefined ? corper.stateOfService : user.corper?.stateOfService,
+    };
+  } else if (user.role === 'landlord' && landlord) {
+    user.landlord = {
+      ...user.landlord?.toObject(),
+      bankCode: landlord.bankCode !== undefined ? landlord.bankCode : user.landlord?.bankCode,
+      bankName: landlord.bankName !== undefined ? landlord.bankName : user.landlord?.bankName,
+      accountNumber: landlord.accountNumber !== undefined ? landlord.accountNumber : user.landlord?.accountNumber,
+      accountName: landlord.accountName !== undefined ? landlord.accountName : user.landlord?.accountName,
+    };
+  }
+
+  await user.save();
+  res.json({ user: publicUser(user) });
+}
+
+module.exports = { register, login, me, forgotPassword, resetPassword, verifyEmail, resendVerification, updateProfile };
