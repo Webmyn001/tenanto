@@ -19,6 +19,10 @@ export default function VerifyPage() {
     confirm: false,
     finalize: false
   });
+  const [loadingState, setLoadingState] = useState({ doc: '', selfie: '' });
+  const [localDocPreview, setLocalDocPreview] = useState(null);
+  const [localSelfiePreview, setLocalSelfiePreview] = useState(null);
+  const [ninErr, setNinErr] = useState('');
 
   useEffect(() => { setUser(getUser()); }, []);
   if (!user) return null;
@@ -43,17 +47,11 @@ export default function VerifyPage() {
 
   const isSelfieUploaded = !!user.selfieUrl;
 
-  const [loadingState, setLoadingState] = useState({ doc: '', selfie: '' });
-  const [localDocPreview, setLocalDocPreview] = useState(null);
-  const [localSelfiePreview, setLocalSelfiePreview] = useState(null);
-
   async function refresh() {
     const { data } = await api.get('/auth/me');
     saveAuth(getToken(), data.user);
     setUser(data.user);
   }
-
-  const [ninErr, setNinErr] = useState('');
 
   async function submitNIN() {
     const check = validateNIN(nin);
