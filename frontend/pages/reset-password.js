@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../components/Layout';
@@ -15,8 +15,14 @@ export default function ResetPassword() {
     confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   useEffect(() => {
     if (queryEmail) {
@@ -26,14 +32,15 @@ export default function ResetPassword() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setErr('');
 
-    if (form.password !== form.confirmPassword) {
-      return setErr('Passwords do not match');
+    if (!form.email || !form.code || !form.password || !form.confirmPassword) {
+      return showToast('Please fill in all fields', 'error');
     }
-
+    if (form.password !== form.confirmPassword) {
+      return showToast('Passwords do not match', 'error');
+    }
     if (form.code.length !== 6) {
-      return setErr('Please enter the 6-digit code');
+      return showToast('Please enter the 6-digit code', 'error');
     }
 
     setLoading(true);
@@ -43,41 +50,29 @@ export default function ResetPassword() {
         code: form.code,
         password: form.password,
       });
-      setSuccess(true);
+      showToast('Password reset successfully! Redirecting to login...', 'success');
       setTimeout(() => {
         router.push('/login');
       }, 3000);
     } catch (e) {
-      setErr(e?.response?.data?.error || 'Invalid code or email. Please try again.');
+      showToast(e?.response?.data?.error || 'Invalid code or email. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
   }
 
-  if (success) {
-    return (
-      <Layout>
-        <div className="mx-auto max-w-md pt-12 text-center">
-          <div className="card border-green-500 border-t-4">
-            <div className="flex justify-center mb-4">
-              <div className="bg-green-100 p-3 rounded-full">
-                <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Success!</h1>
-            <p className="mt-2 text-gray-600">Your password has been reset successfully.</p>
-            <p className="mt-4 text-sm text-gray-500 italic">Redirecting you to login...</p>
-            <Link href="/login" className="btn-primary mt-6 block w-full">Login Now</Link>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] animate-slide-down">
+          <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="flex-1">{toast.msg}</span>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-md pt-12">
         <div className="card shadow-xl border-t-4 border-brand-600">
           <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
@@ -132,8 +127,6 @@ export default function ResetPassword() {
                 onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
               />
             </div>
-
-            {err && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{err}</p>}
 
             <button
               disabled={loading}

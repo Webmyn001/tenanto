@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import api from '../../lib/api';
@@ -13,8 +13,15 @@ export default function NewPayment() {
   const [contributors, setContributors] = useState([]); // [{ user, email, amount }]
   const [contribEmail, setContribEmail] = useState('');
   const [contribAmount, setContribAmount] = useState('');
-  const [err, setErr] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
   const [busy, setBusy] = useState(false);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   useEffect(() => {
     if (!propertyId) return;
@@ -28,14 +35,13 @@ export default function NewPayment() {
   const contribSum = contributors.reduce((s, c) => s + Number(c.amount || 0), 0);
 
   async function addContributor() {
-    setErr('');
-    if (!contribEmail || !contribAmount) return setErr('Email and amount required');
+    if (!contribEmail || !contribAmount) return showToast('Email and amount required', 'error');
     try {
       const { data } = await api.get(`/lookup/email?email=${encodeURIComponent(contribEmail)}`);
-      if (contributors.find((c) => c.user === data.user._id)) return setErr('Already added');
+      if (contributors.find((c) => c.user === data.user._id)) return showToast('Already added', 'error');
       setContributors([...contributors, { user: data.user._id, email: data.user.email, name: data.user.fullName, amount: Number(contribAmount) }]);
       setContribEmail(''); setContribAmount('');
-    } catch (e) { setErr(e?.response?.data?.error || 'No user with that email — they need to sign up first'); }
+    } catch (e) { showToast(e?.response?.data?.error || 'No user with that email — they need to sign up first', 'error'); }
   }
 
   function removeContributor(userId) {
@@ -43,21 +49,22 @@ export default function NewPayment() {
   }
 
   async function initiate() {
-    setErr(''); setBusy(true);
+    setBusy(true);
     try {
       const payload = { propertyId, paymentMode: mode };
       if (mode === 'installment') payload.installmentMonths = Number(months);
       if (mode === 'group') {
-        if (contribSum !== totalDue) return setErr(`Contributor amounts sum to ${naira(contribSum)}, must equal ${naira(totalDue)}`);
+        if (contribSum !== totalDue) return showToast(`Contributor amounts sum to ${naira(contribSum)}, must equal ${naira(totalDue)}`, 'error');
         payload.contributors = contributors.map((c) => ({ user: c.user, amount: c.amount }));
       }
       const { data } = await api.post('/payments/initiate', payload);
       if (data.init?.authorizationUrl) {
         window.location.href = data.init.authorizationUrl + (data.init.authorizationUrl.includes('?') ? '&' : '?') + `paymentId=${data.payment._id}`;
       } else {
+        showToast('Payment initiated successfully', 'success');
         router.push('/dashboard/tenant');
       }
-    } catch (e) { setErr(e?.response?.data?.error || 'Failed'); }
+    } catch (e) { showToast(e?.response?.data?.error || 'Payment initiation failed', 'error'); }
     finally { setBusy(false); }
   }
 
@@ -124,7 +131,16 @@ export default function NewPayment() {
             </div>
           )}
 
-          {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+          {toast && (
+            <div className="mt-3">
+              <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="flex-1">{toast.msg}</span>
+              </div>
+            </div>
+          )}
           <button onClick={initiate} disabled={busy} className="btn-primary mt-5 w-full">
             {busy ? '…' : `Continue to Paystack (${naira(totalDue)})`}
           </button>

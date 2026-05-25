@@ -9,8 +9,8 @@ const roommateProfileSchema = new mongoose.Schema(
     state: { type: String, index: true },         // for corpers
     department: String,
     yearOfStudy: Number,                          // 1..6
-    budgetMin: { type: Number, required: true },
-    budgetMax: { type: Number, required: true },
+    budgetMin: Number,
+    budgetMax: Number,
 
     // Lifestyle prefs (free-text but normalised on the client)
     sleepSchedule: { type: String, enum: ['early_bird', 'night_owl', 'flexible'], default: 'flexible' },
@@ -19,7 +19,7 @@ const roommateProfileSchema = new mongoose.Schema(
     socialLevel: { type: String, enum: ['quiet', 'balanced', 'social'], default: 'balanced' },
     gender: { type: String, enum: ['male', 'female', 'any'], default: 'any' },
 
-    bio: { type: String, maxlength: 500 },
+
     lookingFor: { type: Number, default: 1, min: 1, max: 4 }, // # of roommates wanted
 
     // Hide profile from matching but keep data

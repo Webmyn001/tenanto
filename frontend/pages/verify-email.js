@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../components/Layout';
@@ -12,8 +12,14 @@ export default function VerifyEmail() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [err, setErr] = useState('');
-  const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   useEffect(() => {
     if (queryEmail) setEmail(queryEmail);
@@ -21,31 +27,28 @@ export default function VerifyEmail() {
 
   async function handleVerify(e) {
     e.preventDefault();
-    setErr('');
-    setMsg('');
-    if (code.length !== 6) return setErr('Please enter the 6-digit code');
+    if (!email || !code) return showToast('Please enter the code', 'error');
+    if (code.length !== 6) return showToast('Please enter the 6-digit code', 'error');
 
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/verify-email', { email, code });
-      setMsg(data.message);
+      await api.post('/auth/verify-email', { email, code });
+      showToast('Email verified successfully! Redirecting to login...', 'success');
       setTimeout(() => router.push('/login'), 2000);
     } catch (e) {
-      setErr(e?.response?.data?.error || 'Verification failed');
+      showToast(e?.response?.data?.error || 'Verification failed', 'error');
     } finally {
       setLoading(false);
     }
   }
 
   async function handleResend() {
-    setErr('');
-    setMsg('');
     setResending(true);
     try {
-      const { data } = await api.post('/auth/resend-verification', { email });
-      setMsg(data.message);
+      await api.post('/auth/resend-verification', { email });
+      showToast('Verification code resent!', 'success');
     } catch (e) {
-      setErr(e?.response?.data?.error || 'Failed to resend code');
+      showToast(e?.response?.data?.error || 'Failed to resend code', 'error');
     } finally {
       setResending(false);
     }
@@ -53,6 +56,16 @@ export default function VerifyEmail() {
 
   return (
     <Layout>
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] animate-slide-down">
+          <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="flex-1">{toast.msg}</span>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-md pt-12">
         <div className="card shadow-xl border-t-4 border-brand-600">
           <h1 className="text-2xl font-bold text-gray-900 text-center">Verify Your Email</h1>
@@ -73,9 +86,6 @@ export default function VerifyEmail() {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
               />
             </div>
-
-            {err && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg text-center">{err}</p>}
-            {msg && <p className="text-sm text-green-600 bg-green-50 p-3 rounded-lg text-center">{msg}</p>}
 
             <button
               disabled={loading}

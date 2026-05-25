@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../../components/Layout';
 import api from '../../../lib/api';
@@ -11,16 +11,28 @@ export default function RateInspection() {
   const [accuracy, setAccuracy] = useState(5);
   const [cleanliness, setCleanliness] = useState(5);
   const [responsiveness, setResponsiveness] = useState(5);
-  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   async function submit(e) {
-    e.preventDefault(); setErr('');
+    e.preventDefault();
+    if (!body.trim()) return showToast('Please add a comment', 'error');
+    setLoading(true);
     try {
       await api.post(`/inspections/${id}/rate`, {
         rating, body, accuracy, cleanliness, landlordResponsiveness: responsiveness,
       });
-      router.push('/dashboard/tenant');
-    } catch (e) { setErr(e?.response?.data?.error || 'Failed'); }
+      showToast('Rating submitted ✓', 'success');
+      setTimeout(() => router.push('/dashboard/tenant'), 1500);
+    } catch (e) { showToast(e?.response?.data?.error || 'Failed to submit rating', 'error'); }
+    finally { setLoading(false); }
   }
 
   function Stars({ value, onChange }) {
@@ -36,6 +48,16 @@ export default function RateInspection() {
 
   return (
     <Layout>
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] animate-slide-down">
+          <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="flex-1">{toast.msg}</span>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-xl">
         <div className="card">
           <h1 className="text-xl font-bold">Rate this inspection</h1>
@@ -46,11 +68,12 @@ export default function RateInspection() {
             <div><p className="label">Cleanliness</p><Stars value={cleanliness} onChange={setCleanliness} /></div>
             <div><p className="label">Landlord responsiveness</p><Stars value={responsiveness} onChange={setResponsiveness} /></div>
             <div>
-              <label className="label">Comments (optional)</label>
-              <textarea className="input" rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
+              <label className="label">Comments</label>
+              <textarea className="input" rows={4} value={body} onChange={(e) => setBody(e.target.value)} required />
             </div>
-            {err && <p className="text-sm text-red-600">{err}</p>}
-            <button className="btn-primary w-full">Submit & unlock payment</button>
+            <button disabled={loading} className="btn-primary w-full">
+              {loading ? <span className="spinner" /> : 'Submit & unlock payment'}
+            </button>
           </form>
         </div>
       </div>

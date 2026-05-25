@@ -1,10 +1,17 @@
 const mongoose = require('mongoose');
 
+const lastMessageSchema = new mongoose.Schema({
+  body: String,
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdAt: Date,
+}, { _id: false });
+
 const conversationSchema = new mongoose.Schema(
   {
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],
     property: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
     lastMessageAt: { type: Date, default: Date.now },
+    lastMessage: lastMessageSchema,
     bypassAttempts: { type: Number, default: 0 }, // Counts blocked contact-share attempts
   },
   { timestamps: true }

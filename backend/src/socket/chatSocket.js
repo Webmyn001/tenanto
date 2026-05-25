@@ -30,7 +30,7 @@ function attachChatSocket(io) {
       if (!convo.participants.some((p) => p.toString() === socket.user._id.toString())) return;
 
       const filtered = filterMessage(body || '');
-      const msg = await Message.create({
+      const message = await Message.create({
         conversation: convo._id,
         sender: socket.user._id,
         body: filtered.clean,
@@ -39,15 +39,26 @@ function attachChatSocket(io) {
         blocked: filtered.blocked,
       });
 
+      const msg = await Message.findById(message._id).populate('sender', 'fullName role');
+
+      convo.lastMessageAt = new Date();
+      convo.lastMessage = { body: filtered.clean.slice(0, 120), sender: socket.user._id, createdAt: new Date() };
       if (filtered.blocked) {
         convo.bypassAttempts += 1;
         await User.updateOne({ _id: socket.user._id }, { $inc: { bypassWarnings: 1 } });
       }
-      convo.lastMessageAt = new Date();
       await convo.save();
 
       io.to(conversationId).emit('message', msg);
       if (filtered.blocked) socket.emit('blocked', { reasons: filtered.reasons });
+    });
+
+    socket.on('typing', ({ conversationId }) => {
+      socket.to(conversationId).emit('typing', { userId: socket.user._id });
+    });
+
+    socket.on('stop-typing', ({ conversationId }) => {
+      socket.to(conversationId).emit('stop-typing', { userId: socket.user._id });
     });
   });
 }

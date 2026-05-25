@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../../components/Layout';
 import api from '../../../lib/api';
@@ -23,8 +23,15 @@ export default function NewListing() {
   });
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
   const [uploadStatus, setUploadStatus] = useState('');
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   const removeMediaItem = (indexToRemove) => {
     setMedia((prev) => prev.filter((_, idx) => idx !== indexToRemove));
@@ -52,7 +59,7 @@ export default function NewListing() {
       const { data } = await api.post('/upload/many', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setMedia((m) => [...m, ...data.files]);
     } catch (err) {
-      setErr('Media upload failed');
+      showToast('Media upload failed', 'error');
     } finally {
       setLoading(false);
       setUploadStatus('');
@@ -60,7 +67,7 @@ export default function NewListing() {
   }
 
   async function submit(e) {
-    e.preventDefault(); setErr(''); setLoading(true);
+    e.preventDefault(); setLoading(true);
     try {
       const payload = {
         ...form,
@@ -77,8 +84,9 @@ export default function NewListing() {
       const { data } = await api.post('/properties', payload);
       // Auto-submit for review (need media validated server-side at active/pending_review state)
       try { await api.post(`/properties/${data._id}/publish`); } catch (e) { /* min-media not yet met */ }
-      router.push('/dashboard/landlord');
-    } catch (e) { setErr(e?.response?.data?.error || 'Could not create'); }
+      showToast('Listing created successfully!', 'success');
+      setTimeout(() => router.push('/dashboard/landlord'), 1500);
+    } catch (e) { showToast(e?.response?.data?.error || 'Could not create listing', 'error'); }
     finally { setLoading(false); }
   }
 
@@ -189,7 +197,16 @@ export default function NewListing() {
           </p>
         </div>
 
-        {err && <p className="md:col-span-2 text-sm text-red-600">{err}</p>}
+        {toast && (
+          <div className="md:col-span-2">
+            <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="flex-1">{toast.msg}</span>
+            </div>
+          </div>
+        )}
         <button disabled={loading} className="btn-primary md:col-span-2">{loading ? '…' : 'Save & submit for review'}</button>
       </form>
     </Layout>

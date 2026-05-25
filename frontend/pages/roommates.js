@@ -1,15 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Layout from '../components/Layout';
 import api, { getUser } from '../lib/api';
-import { naira } from '../lib/format';
 
 export default function Roommates() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState('');
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   useEffect(() => { setUser(getUser()); load(); }, []);
 
@@ -27,24 +34,29 @@ export default function Roommates() {
 
   async function save(e) {
     e.preventDefault();
+    setSaving(true);
     const fd = new FormData(e.target);
     const data = Object.fromEntries(fd);
-    data.budgetMin = Number(data.budgetMin);
-    data.budgetMax = Number(data.budgetMax);
+    if (!data.yearOfStudy) { showToast('Year of study is required', 'error'); setSaving(false); return; }
+    if (!data.department) { showToast('Department is required', 'error'); setSaving(false); return; }
     data.smoker = data.smoker === 'on';
     data.lookingFor = Number(data.lookingFor || 1);
+    if (data.yearOfStudy) data.yearOfStudy = Number(data.yearOfStudy);
     try {
       const { data: r } = await api.post('/roommates/profile', data);
-      setProfile(r.profile); setEditing(false); load();
-    } catch (e) { setMsg(e?.response?.data?.error || 'Failed'); }
+      setProfile(r.profile); setEditing(false);
+      showToast('Roommate profile saved ✓', 'success');
+      load();
+    } catch (e) { showToast(e?.response?.data?.error || 'Failed to save', 'error'); }
+    finally { setSaving(false); }
   }
 
   async function invite(targetUserId) {
     const message = prompt('Send a message to introduce yourself (optional):');
     try {
       await api.post('/roommates/invite', { userId: targetUserId, message });
-      setMsg('Invite sent ✓');
-    } catch (e) { setMsg(e?.response?.data?.error || 'Failed'); }
+      showToast('Invite sent ✓', 'success');
+    } catch (e) { showToast(e?.response?.data?.error || 'Failed to send invite', 'error'); }
   }
 
   if (!user) return <Layout><div className="card">Sign in to use roommate matching.</div></Layout>;
@@ -57,24 +69,30 @@ export default function Roommates() {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold">Find roommates</h1>
-          <p className="text-sm text-gray-600">Match by school, budget, lifestyle. Invite via in-app chat (no contact info shared).</p>
+          <p className="text-sm text-gray-600">Fill in your preferences to find compatible roommates. Invite via in-app chat (no contact info shared).</p>
         </div>
         {profile && !editing && <button onClick={() => setEditing(true)} className="btn-outline">Edit profile</button>}
       </div>
 
-      {msg && <div className="card mb-4 border-brand-200 bg-brand-50 text-sm text-brand-800">{msg}</div>}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] animate-slide-down">
+          <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="flex-1">{toast.msg}</span>
+          </div>
+        </div>
+      )}
 
       {(!profile || editing) ? (
         <form onSubmit={save} className="card grid gap-4 md:grid-cols-2">
-          <h2 className="md:col-span-2 font-semibold">Your roommate profile</h2>
+          <h2 className="md:col-span-2 font-semibold">Your preferences</h2>
           <div><label className="label">Department</label>
-            <input name="department" className="input" defaultValue={profile?.department || user.student?.department || ''} /></div>
+            <input name="department" className="input" defaultValue={profile?.department || user.student?.department || ''} required /></div>
           <div><label className="label">Year of study</label>
-            <input name="yearOfStudy" type="number" min="1" max="6" className="input" defaultValue={profile?.yearOfStudy || ''} /></div>
-          <div><label className="label">Budget min (₦/yr)</label>
-            <input name="budgetMin" type="number" required className="input" defaultValue={profile?.budgetMin || 200000} /></div>
-          <div><label className="label">Budget max (₦/yr)</label>
-            <input name="budgetMax" type="number" required className="input" defaultValue={profile?.budgetMax || 500000} /></div>
+            <input name="yearOfStudy" type="number" min="1" max="6" className="input" defaultValue={profile?.yearOfStudy || ''} required /></div>
+
           <div><label className="label">Sleep schedule</label>
             <select name="sleepSchedule" className="input" defaultValue={profile?.sleepSchedule || 'flexible'}>
               <option value="early_bird">Early bird</option>
@@ -103,17 +121,17 @@ export default function Roommates() {
             <input name="lookingFor" type="number" min="1" max="4" className="input" defaultValue={profile?.lookingFor || 1} /></div>
           <div className="flex items-center gap-2"><input type="checkbox" id="smoker" name="smoker" defaultChecked={profile?.smoker} />
             <label htmlFor="smoker">I smoke</label></div>
-          <div className="md:col-span-2"><label className="label">Bio</label>
-            <textarea name="bio" rows={3} className="input" defaultValue={profile?.bio || ''} /></div>
-          <button className="btn-primary md:col-span-2">{profile ? 'Save changes' : 'Create profile'}</button>
+
+          <button disabled={saving} className="btn-primary md:col-span-2">
+            {saving ? <span className="spinner mr-2" /> : (profile ? 'Update & search' : 'Search for roommates')}
+          </button>
         </form>
       ) : (
         <>
           <div className="card mb-6">
             <h2 className="font-semibold">Your profile</h2>
             <p className="mt-1 text-sm text-gray-600">
-              {profile.school || profile.state} · {profile.department || '—'} · budget {naira(profile.budgetMin)}–{naira(profile.budgetMax)} ·{' '}
-              {profile.cleanliness} / {profile.socialLevel} / {profile.sleepSchedule}
+              {profile.school || profile.state} · {profile.department || '—'} · {profile.cleanliness} / {profile.socialLevel} / {profile.sleepSchedule}
             </p>
           </div>
 
@@ -132,8 +150,6 @@ export default function Roommates() {
                     <span className={`badge ${score >= 70 ? '' : 'badge-warn'}`}>{score}% match</span>
                   </div>
                   <p className="mt-2 text-sm text-gray-700">{p.school || p.state} · {p.department || '—'}</p>
-                  <p className="mt-1 text-xs text-gray-500">Budget {naira(p.budgetMin)}–{naira(p.budgetMax)}</p>
-                  {p.bio && <p className="mt-2 text-sm italic text-gray-600">"{p.bio.slice(0, 120)}"</p>}
                   <ul className="mt-3 space-y-0.5 text-xs text-gray-500">
                     {reasons.slice(0, 4).map((r, i) => <li key={i}>· {r}</li>)}
                   </ul>

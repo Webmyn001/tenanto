@@ -9,10 +9,6 @@ async function upsertProfile(req, res) {
   if (req.user.role === 'student' && !data.school) data.school = req.user.student?.schoolName;
   if (req.user.role === 'corper' && !data.state) data.state = req.user.corper?.stateOfService;
 
-  if (!data.budgetMin || !data.budgetMax) {
-    return res.status(400).json({ error: 'budgetMin and budgetMax are required' });
-  }
-
   const profile = await RoommateProfile.findOneAndUpdate(
     { user: req.user._id }, data, { upsert: true, new: true, setDefaultsOnInsert: true }
   );
@@ -29,8 +25,8 @@ async function getMyProfile(req, res) {
  * Components:
  *   - school/state match: 30
  *   - department match: 10 (loose)
- *   - budget overlap: up to 25
- *   - lifestyle compatibility: up to 25
+ *   - year of study: 8
+ *   - lifestyle compatibility: up to 35
  *   - gender preference: 10 (or 0 if hard mismatch)
  */
 function computeMatchScore(a, b) {
@@ -42,24 +38,16 @@ function computeMatchScore(a, b) {
 
   if (a.department && b.department && a.department === b.department) { score += 10; reasons.push('Same department'); }
 
-  // Budget overlap: full overlap = 25; no overlap = 0
-  const lo = Math.max(a.budgetMin, b.budgetMin);
-  const hi = Math.min(a.budgetMax, b.budgetMax);
-  if (hi >= lo) {
-    const overlap = hi - lo;
-    const totalRange = Math.max(a.budgetMax - a.budgetMin, b.budgetMax - b.budgetMin) || 1;
-    score += Math.min(25, (overlap / totalRange) * 25);
-    reasons.push(`Budget overlap ₦${lo.toLocaleString()}–₦${hi.toLocaleString()}`);
-  }
+  if (a.yearOfStudy && b.yearOfStudy && Math.abs(a.yearOfStudy - b.yearOfStudy) <= 1) { score += 8; reasons.push('Similar year of study'); }
 
-  // Lifestyle: 5 pts each if matching, 0 if mismatched
+  // Lifestyle: 8 pts each if matching, 0 if mismatched
   const lifestyle = ['sleepSchedule', 'cleanliness', 'socialLevel'];
   for (const f of lifestyle) {
     if (a[f] === b[f] || a[f] === 'flexible' || b[f] === 'flexible' || a[f] === 'balanced' || b[f] === 'balanced') {
-      score += 5;
+      score += 8;
     }
   }
-  if (a.smoker === b.smoker) score += 10;
+  if (a.smoker === b.smoker) score += 11;
 
   // Gender — if either side specifies a preference and the other doesn't match, penalise hard
   if (a.gender !== 'any' && b.gender !== 'any' && a.gender !== b.gender) {

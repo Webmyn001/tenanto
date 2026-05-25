@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../components/Layout';
 import SchoolSelect from '../components/SchoolSelect';
+import DepartmentSelect from '../components/DepartmentSelect';
 import StateSelect from '../components/StateSelect';
 import api, { saveAuth } from '../lib/api';
 import { validatePhone, validateStateCode, formatStateCode } from '../lib/validation';
@@ -16,10 +17,23 @@ export default function Register() {
     schoolName: '', schoolEmail: '', department: '', matricNumber: '',
     stateCode: '', stateOfService: '',
     acceptTerms: false,
+    bankCode: '', bankName: '', accountNumber: '',
   });
   const [fieldErr, setFieldErr] = useState({});
-  const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [schools, setSchools] = useState([]);
+  const [toastMsg, setToastMsg] = useState(null);
+  const toastRef = useRef(null);
+  const [banks, setBanks] = useState([]);
+
+  useEffect(() => { api.get('/lookup/schools').then(({ data }) => setSchools(data.schools)).catch(() => {}); }, []);
+  useEffect(() => { api.get('/verify/banks').then(({ data }) => setBanks(data.banks)).catch(() => {}); }, []);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToastMsg({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => { setToastMsg(null); toastRef.current = null; }, 4000);
+  }
 
   const getProgressPercentage = () => {
     const fields = ['fullName', 'email', 'phone', 'password'];
@@ -27,6 +41,8 @@ export default function Register() {
       fields.push('schoolName', 'schoolEmail', 'department', 'matricNumber');
     } else if (role === 'corper') {
       fields.push('stateCode', 'stateOfService');
+    } else if (role === 'landlord') {
+      fields.push('bankCode', 'accountNumber');
     }
     const completed = fields.filter((f) => !!form[f]).length;
     return Math.round((completed / fields.length) * 100);
@@ -49,10 +65,15 @@ export default function Register() {
     e.preventDefault(); setErr(''); setLoading(true);
     if (!validate()) { setLoading(false); return; }
     try {
-      const { data } = await api.post('/auth/register', { ...form, role });
-      router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
+      const payload = { ...form, role };
+      if (role !== 'landlord') {
+        delete payload.bankCode; delete payload.bankName; delete payload.accountNumber;
+      }
+      const { data } = await api.post('/auth/register', payload);
+      showToast('Account created successfully! Check your email for the verification code.', 'success');
+      setTimeout(() => router.push(`/verify-email?email=${encodeURIComponent(form.email)}`), 1500);
     } catch (e) {
-      setErr(e?.response?.data?.error || 'Registration failed');
+      showToast(e?.response?.data?.error || 'Registration failed');
     } finally { setLoading(false); }
   }
 
@@ -97,6 +118,27 @@ export default function Register() {
             </div>
           </div>
 
+          {toastMsg && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] animate-slide-down">
+              <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toastMsg.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+                {toastMsg.type === 'success' ? (
+                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                <span className="flex-1">{toastMsg.msg}</span>
+                <button type="button" onClick={() => setToastMsg(null)} className="shrink-0 hover:bg-white/20 rounded-lg p-1 -mr-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
           <form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2"><label className="label">Full name</label>
               <input className="input" required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></div>
@@ -113,9 +155,21 @@ export default function Register() {
                 <div className="md:col-span-2"><label className="label">School</label>
                   <SchoolSelect value={form.schoolName} onChange={(v) => setForm({ ...form, schoolName: v })} required /></div>
                 <div><label className="label">School email (.edu.ng)</label>
-                  <input className="input" placeholder="you@stu.school.edu.ng" value={form.schoolEmail} onChange={(e) => setForm({ ...form, schoolEmail: e.target.value })} /></div>
+                  <input className="input" placeholder="you@stu.school.edu.ng" value={form.schoolEmail} onChange={(e) => {
+                    const v = e.target.value;
+                    setForm({ ...form, schoolEmail: v });
+                    if (v.includes('@') && form.schoolName) {
+                      const domain = v.split('@')[1]?.toLowerCase();
+                      if (domain) {
+                        const school = schools.find((s) => s.name === form.schoolName);
+                        if (school && school.domains.length > 0 && !school.domains.includes(domain)) {
+                          showToast('This email domain does not match the selected school. Use your official school email (e.g. @' + school.domains[0] + ')', 'error');
+                        }
+                      }
+                    }
+                  }} /></div>
                 <div><label className="label">Department</label>
-                  <input className="input" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></div>
+                  <DepartmentSelect value={form.department} onChange={(v) => setForm({ ...form, department: v })} required /></div>
                 <div className="md:col-span-2"><label className="label">Matric number</label>
                   <input className="input" value={form.matricNumber} onChange={(e) => setForm({ ...form, matricNumber: e.target.value })} /></div>
               </>
@@ -127,6 +181,22 @@ export default function Register() {
                   {fieldErr.stateCode && <p className="mt-1 text-xs text-red-600">{fieldErr.stateCode}</p>}</div>
                 <div><label className="label">State of service</label>
                   <StateSelect value={form.stateOfService} onChange={(v) => setForm({ ...form, stateOfService: v })} required /></div>
+              </>
+            )}
+
+            {role === 'landlord' && (
+              <>
+                <h3 className="md:col-span-2 font-semibold text-base mt-2 mb-1">Payout Bank Account</h3>
+                <div><label className="label">Bank name</label>
+                  <select className="input" value={form.bankCode} onChange={(e) => {
+                    const bank = banks.find(b => b.code === e.target.value);
+                    setForm({ ...form, bankCode: e.target.value, bankName: bank?.name || '' });
+                  }} required>
+                    <option value="">Select bank</option>
+                    {banks.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                  </select></div>
+                <div><label className="label">Account number</label>
+                  <input className="input" placeholder="e.g. 0123456789" maxLength={10} value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') })} required /></div>
               </>
             )}
 
@@ -144,8 +214,6 @@ export default function Register() {
               </label>
             </div>
 
-            {err && <p className="md:col-span-2 text-sm text-red-600">{err}</p>}
-            
             <p className="md:col-span-2 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
               💡 <b>Note:</b> Once your verification is approved by an admin, your profile details will be locked to read-only. Any subsequent updates will require contacting the admin.
             </p>

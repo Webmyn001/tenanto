@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Layout from '../components/Layout';
 import SchoolSelect from '../components/SchoolSelect';
+import DepartmentSelect from '../components/DepartmentSelect';
 import StateSelect from '../components/StateSelect';
 import api, { getUser, saveAuth, getToken } from '../lib/api';
 import { validatePhone, validateStateCode, formatStateCode } from '../lib/validation';
@@ -18,8 +19,14 @@ export default function Settings() {
   });
   const [fieldErr, setFieldErr] = useState({});
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [err, setErr] = useState('');
+  const [toast, setToast] = useState(null);
+  const toastRef = useRef(null);
+
+  function showToast(msg, type) {
+    if (toastRef.current) clearTimeout(toastRef.current);
+    setToast({ msg, type: type || 'error' });
+    toastRef.current = setTimeout(() => setToast(null), 4000);
+  }
 
   useEffect(() => {
     const u = getUser();
@@ -47,7 +54,7 @@ export default function Settings() {
     );
   }
 
-  const isApproved = user.verificationStatus === 'approved';
+  const isApproved = user.verificationStatus === 'approved' || user.verificationStatus === 'submitted';
 
   function validate() {
     const errs = {};
@@ -64,10 +71,9 @@ export default function Settings() {
   async function submit(e) {
     e.preventDefault();
     if (isApproved) return;
+    if (!form.fullName) return showToast('Full name is required', 'error');
     if (!validate()) return;
     setLoading(true);
-    setMsg('');
-    setErr('');
 
     const payload = {
       fullName: form.fullName,
@@ -92,9 +98,9 @@ export default function Settings() {
       const meRes = await api.get('/auth/me');
       saveAuth(getToken(), meRes.data.user);
       setUser(meRes.data.user);
-      setMsg('Profile updated successfully ✓');
+      showToast('Profile updated successfully ✓', 'success');
     } catch (e) {
-      setErr(e?.response?.data?.error || 'Profile update failed');
+      showToast(e?.response?.data?.error || 'Profile update failed', 'error');
     } finally {
       setLoading(false);
     }
@@ -112,15 +118,26 @@ export default function Settings() {
             <div>
               <p className="font-semibold">Profile details locked</p>
               <p className="mt-0.5 text-blue-700">
-                Your account is verified. To prevent identity mismatch, edits to your core profile details are disabled. 
-                Please contact support at <a href="mailto:support@tenanto.local" className="underline font-medium">support@tenanto.local</a> if you need to modify your information.
+                {user.verificationStatus === 'submitted'
+                  ? 'Your verification is under review. Edits to your core profile details are temporarily disabled. Please contact support at '
+                  : 'To prevent identity mismatch, edits to your core profile details are disabled. Please contact support at '}
+                <a href="mailto:support@tenanto.local" className="underline font-medium">support@tenanto.local</a>
+                {user.verificationStatus === 'submitted' ? ' if you need to make changes.' : ' if you need to modify your information.'}
               </p>
             </div>
           </div>
         )}
 
-        {msg && <div className="card mb-4 border-green-200 bg-green-50 text-sm text-green-800 py-3">{msg}</div>}
-        {err && <div className="card mb-4 border-red-200 bg-red-50 text-sm text-red-800 py-3">{err}</div>}
+        {toast && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] animate-slide-down">
+            <div className={`rounded-xl text-white px-5 py-3.5 text-sm font-medium shadow-xl flex items-center gap-2.5 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="flex-1">{toast.msg}</span>
+            </div>
+          </div>
+        )}
 
         <div className="card mb-6">
           <h2 className="font-semibold mb-4 text-base">Personal Photo</h2>
@@ -218,12 +235,11 @@ export default function Settings() {
 
               <div>
                 <label className="label">Department</label>
-                <input 
-                  className="input" 
-                  value={form.department} 
-                  onChange={(e) => setForm({ ...form, department: e.target.value })} 
-                  disabled={isApproved}
-                />
+                {isApproved ? (
+                  <input className="input bg-gray-50 text-gray-500 cursor-not-allowed" value={form.department} disabled readOnly />
+                ) : (
+                  <DepartmentSelect value={form.department} onChange={(v) => setForm({ ...form, department: v })} />
+                )}
               </div>
 
               <div className="md:col-span-2">

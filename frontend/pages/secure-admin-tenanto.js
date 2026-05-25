@@ -218,9 +218,9 @@ export default function SecureAdmin() {
     setSectionLoading(false);
   }
 
-  async function doAction(url, successMsg, reload = true) {
+  async function doAction(url, successMsg, reload = true, body) {
     try {
-      await api.post(url);
+      await api.post(url, body || {});
       if (reload) fetchSection(activeSection);
       setGlobalMsg({ type: 'success', text: successMsg });
       setTimeout(() => setGlobalMsg(null), 3000);
@@ -887,8 +887,8 @@ function VerificationsSection({ data, doAction }) {
               )}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => doAction(`/admin/verifications/${u._id}`, `${u.fullName.split(' ')[0]} rejected`, true)} className="btn-outline flex-1 sm:flex-initial">Reject</button>
-              <button onClick={() => doAction(`/admin/verifications/${u._id}`, `${u.fullName.split(' ')[0]} approved`, true)} className="btn-primary flex-1 sm:flex-initial">Approve</button>
+              <button onClick={() => doAction(`/admin/verifications/${u._id}`, `${u.fullName.split(' ')[0]} rejected`, true, { decision: 'reject' })} className="btn-outline flex-1 sm:flex-initial">Reject</button>
+              <button onClick={() => doAction(`/admin/verifications/${u._id}`, `${u.fullName.split(' ')[0]} approved`, true, { decision: 'approve' })} className="btn-primary flex-1 sm:flex-initial">Approve</button>
             </div>
           </div>
         </div>

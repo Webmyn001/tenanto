@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { sign } = require('../utils/jwt');
 const { stateFromNyscCode } = require('../utils/nin');
 const { sendMail } = require('../utils/email');
+const { resolveAccount, createTransferRecipient } = require('../utils/paystack');
 
 const PHONE_RE = /^(\+?234|0)[789]\d{9}$/;
 const STATECODE_RE = /^[A-Za-z]{2}\/\d{1,2}[A-Za-z]\/\d{3,}$/;
@@ -47,9 +48,12 @@ async function register(req, res) {
       stateOfService: stateFromNyscCode(extras.stateCode) || extras.stateOfService,
     };
   } else if (role === 'landlord') {
-    user.landlord = {
-      // Landlord specific fields like bank details are added later
-    };
+    user.landlord = {};
+    if (extras.bankCode && extras.accountNumber) {
+      user.landlord.bankCode = extras.bankCode;
+      user.landlord.bankName = extras.bankName;
+      user.landlord.accountNumber = extras.accountNumber;
+    }
   }
 
   // Generate email verification code
@@ -58,6 +62,28 @@ async function register(req, res) {
   user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
   await user.save();
+
+  // Resolve bank account (don't await so registration stays fast)
+  if (role === 'landlord' && extras.bankCode && extras.accountNumber) {
+    resolveAccount({ accountNumber: extras.accountNumber, bankCode: extras.bankCode })
+      .then(async (resolved) => {
+        const recipient = await createTransferRecipient({
+          name: resolved.account_name || fullName,
+          accountNumber: extras.accountNumber,
+          bankCode: extras.bankCode,
+        });
+        await User.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              'landlord.accountName': resolved.account_name,
+              'landlord.paystackRecipientCode': recipient.recipient_code,
+            }
+          }
+        );
+      })
+      .catch(e => console.warn('[bank] registration resolve failed:', e.message));
+  }
 
   // Send verification email (don't await so the API is fast)
   sendMail({

@@ -81,6 +81,7 @@ router.get('/reviews/user/:userId', reviews.listForUser);
 // --- Lookups ---
 router.get('/lookup/email', requireAuth, rl.lookupLimiter, lookup.lookupByEmail);
 router.get('/lookup/schools', lookup.listSchools);
+router.get('/lookup/departments', lookup.listDepartments);
 
 // --- Inspections ---
 router.post('/inspections', requireAuth, requireApproved, rl.inspectionLimiter, insp.bookInspection);
@@ -94,6 +95,7 @@ router.post('/chat/conversations', requireAuth, rl.chatLimiter, chat.startConver
 router.get('/chat/conversations', requireAuth, chat.listConversations);
 router.get('/chat/conversations/:id/messages', requireAuth, chat.listMessages);
 router.post('/chat/conversations/:id/messages', requireAuth, rl.chatLimiter, chat.sendMessage);
+router.post('/chat/conversations/:id/read', requireAuth, chat.markAsRead);
 router.post('/chat/report-bypass', requireAuth, chat.reportBypass);
 
 // --- Payments ---
