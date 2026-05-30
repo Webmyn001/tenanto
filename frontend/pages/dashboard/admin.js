@@ -3,13 +3,32 @@ import Layout from '../../components/Layout';
 import api, { getUser } from '../../lib/api';
 import { naira, shortDate } from '../../lib/format';
 
+function StatCard({ label, value, icon, color }) {
+  return (
+    <div className="card flex items-center gap-4">
+      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${color}`}>
+        <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={icon} /></svg>
+      </div>
+      <div>
+        <p className="text-sm text-gray-500">{label}</p>
+        <p className="text-2xl font-bold">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('analytics');
   const [data, setData] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => { setUser(getUser()); }, []);
-  useEffect(() => { load(tab); }, [tab]);
+
+  useEffect(() => {
+    setLoading(true);
+    load(tab).finally(() => setLoading(false));
+  }, [tab]);
 
   async function load(t) {
     const map = {
@@ -19,132 +38,165 @@ export default function AdminDashboard() {
       disputes: '/admin/disputes',
       fraud: '/admin/fraud',
     };
-    try { const { data } = await api.get(map[t]); setData(data); } catch {}
+    const { data: res } = await api.get(map[t]);
+    setData(res);
   }
 
-  if (!user) return null;
+  if (!user) return <Layout><div className="flex min-h-[50vh] items-center justify-center"><span className="spinner h-8 w-8 text-brand-600" /></div></Layout>;
   if (user.role !== 'admin') return <Layout><div className="card text-center">Admins only.</div></Layout>;
 
   return (
     <Layout wide>
-      <h1 className="mb-4 text-2xl font-bold">Admin console</h1>
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Admin console</h1>
+        <p className="text-sm text-gray-500">Manage users, listings, and platform activity.</p>
+      </div>
+
+      <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
         {['analytics', 'verifications', 'listings', 'disputes', 'fraud'].map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-4 py-1.5 text-sm capitalize ${tab === t ? 'bg-brand-600 text-white' : 'border border-gray-200 bg-white'}`}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium capitalize transition ${tab === t ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>{t}</button>
         ))}
       </div>
 
-      {tab === 'analytics' && (
+      {loading ? (
+        <div className="flex min-h-[30vh] items-center justify-center"><span className="spinner h-8 w-8 text-brand-600" /></div>
+      ) : tab === 'analytics' && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ['Users', data.users ?? 0],
-            ['Listings', data.listings ?? 0],
-            ['Active listings', data.activeListings ?? 0],
-            ['In escrow', naira(data.escrowedNaira)],
-          ].map(([k, v]) => (
-            <div key={k} className="card">
-              <p className="text-xs text-gray-500">{k}</p>
-              <p className="mt-1 text-2xl font-bold">{v}</p>
-            </div>
-          ))}
+          <StatCard label="Total users" value={data.users ?? 0} icon="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" color="bg-violet-500" />
+          <StatCard label="Total listings" value={data.listings ?? 0} icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" color="bg-blue-500" />
+          <StatCard label="Active listings" value={data.activeListings ?? 0} icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-green-500" />
+          <StatCard label="In escrow" value={naira(data.escrowedNaira)} icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-amber-500" />
         </div>
       )}
 
       {tab === 'verifications' && (
         <section className="card">
-          <h2 className="font-semibold">Pending verifications</h2>
-          {(data.items || []).length === 0 ? <p className="mt-2 text-sm text-gray-500">Nothing pending.</p> : (
-            <ul className="mt-3 divide-y">
+          <h2 className="mb-3 font-semibold">Pending verifications</h2>
+          {(data.items || []).length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <svg className="mb-3 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+              <p className="font-medium text-gray-700">Nothing pending</p>
+              <p className="mt-1 text-sm text-gray-500">All verifications have been reviewed.</p>
+            </div>
+          ) : (
+            <div className="-m-5 divide-y">
               {data.items.map((u) => (
-                <li key={u._id} className="py-3">
+                <div key={u._id} className="px-5 py-4 transition hover:bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{u.fullName} <span className="badge-gray ml-2 capitalize">{u.role}</span></p>
-                      <p className="text-xs text-gray-500">{u.email}</p>
+                      <p className="font-medium">{u.fullName} <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${u.role === 'student' ? 'bg-blue-50 text-blue-700' : u.role === 'corper' ? 'bg-green-50 text-green-700' : 'bg-violet-50 text-violet-700'}`}>{u.role}</span></p>
+                      <p className="mt-0.5 text-sm text-gray-500">{u.email}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'reject', notes: 'Documents unclear' }); load('verifications'); }} className="btn-outline">Reject</button>
-                      <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'approve' }); load('verifications'); }} className="btn-primary">Approve</button>
+                      <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'reject', notes: 'Documents unclear' }); load('verifications'); }} className="btn-outline px-3 py-1.5 text-xs">Reject</button>
+                      <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'approve' }); load('verifications'); }} className="btn-primary px-3 py-1.5 text-xs">Approve</button>
                     </div>
                   </div>
                   {u.documents?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {u.documents.map((d, i) => (
-                        <a key={i} href={d.url} target="_blank" className="badge-gray">{d.kind}</a>
+                        <a key={i} href={d.url} target="_blank" className="badge-gray text-xs" rel="noreferrer">{d.kind}</a>
                       ))}
-                      {u.selfieUrl && <a href={u.selfieUrl} target="_blank" className="badge-gray">selfie</a>}
+                      {u.selfieUrl && <a href={u.selfieUrl} target="_blank" className="badge-gray text-xs" rel="noreferrer">selfie</a>}
                     </div>
                   )}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       )}
 
       {tab === 'listings' && (
         <section className="card">
-          <h2 className="font-semibold">Listings pending review</h2>
-          {(data.items || []).length === 0 ? <p className="mt-2 text-sm text-gray-500">Nothing pending.</p> : (
-            <ul className="mt-3 divide-y">
+          <h2 className="mb-3 font-semibold">Listings pending review</h2>
+          {(data.items || []).length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <svg className="mb-3 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="font-medium text-gray-700">Nothing pending</p>
+              <p className="mt-1 text-sm text-gray-500">All listings have been reviewed.</p>
+            </div>
+          ) : (
+            <div className="-m-5 divide-y">
               {data.items.map((p) => (
-                <li key={p._id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-medium">{p.title}</p>
-                    <p className="text-xs text-gray-500">{p.area} · {naira(p.annualRent)}/yr · by {p.landlord?.fullName}</p>
+                <div key={p._id} className="flex items-center justify-between px-5 py-4 transition hover:bg-gray-50">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {p.media?.[0]?.url ? (
+                      <img src={p.media[0].url} alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded-lg object-cover shadow-sm" />
+                    ) : (
+                      <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100"><svg className="h-5 w-5 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg></div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{p.title}</p>
+                      <p className="mt-0.5 text-sm text-gray-500">{p.area} &middot; {naira(p.annualRent)}/yr &middot; by {p.landlord?.fullName}</p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={async () => { await api.post(`/admin/listings/${p._id}`, { decision: 'reject', reason: 'Insufficient detail' }); load('listings'); }} className="btn-outline">Reject</button>
-                    <button onClick={async () => { await api.post(`/admin/listings/${p._id}`, { decision: 'approve' }); load('listings'); }} className="btn-primary">Approve</button>
+                    <button onClick={async () => { await api.post(`/admin/listings/${p._id}`, { decision: 'reject', reason: 'Insufficient detail' }); load('listings'); }} className="btn-outline px-3 py-1.5 text-xs">Reject</button>
+                    <button onClick={async () => { await api.post(`/admin/listings/${p._id}`, { decision: 'approve' }); load('listings'); }} className="btn-primary px-3 py-1.5 text-xs">Approve</button>
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       )}
 
       {tab === 'disputes' && (
         <section className="card">
-          <h2 className="font-semibold">Open disputes</h2>
-          {(data.items || []).length === 0 ? <p className="mt-2 text-sm text-gray-500">No disputes.</p> : (
-            <ul className="mt-3 divide-y">
+          <h2 className="mb-3 font-semibold">Open disputes</h2>
+          {(data.items || []).length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <svg className="mb-3 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="font-medium text-gray-700">No disputes</p>
+              <p className="mt-1 text-sm text-gray-500">All clear.</p>
+            </div>
+          ) : (
+            <div className="-m-5 divide-y">
               {data.items.map((p) => (
-                <li key={p._id} className="py-3">
-                  <p className="font-medium">{p.property?.title}</p>
-                  <p className="text-xs text-gray-500">Tenant: {p.tenant?.fullName} · Landlord: {p.landlord?.fullName}</p>
-                  <p className="mt-1 text-sm italic">"{p.disputeReason}"</p>
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={async () => { await api.post(`/admin/disputes/${p._id}`, { resolution: 'refund' }); load('disputes'); }} className="btn-danger">Refund tenant</button>
-                    <button onClick={async () => { await api.post(`/admin/disputes/${p._id}`, { resolution: 'release' }); load('disputes'); }} className="btn-outline">Release to landlord</button>
+                <div key={p._id} className="px-5 py-4 transition hover:bg-gray-50">
+                  <p className="font-medium">{p.property?.title || 'Unknown'}</p>
+                  <p className="mt-0.5 text-sm text-gray-500">Tenant: {p.tenant?.fullName} &middot; Landlord: {p.landlord?.fullName}</p>
+                  {p.disputeReason && <p className="mt-2 rounded-lg bg-red-50 p-3 text-sm italic text-red-700">&ldquo;{p.disputeReason}&rdquo;</p>}
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={async () => { await api.post(`/admin/disputes/${p._id}`, { resolution: 'refund' }); load('disputes'); }} className="btn-danger px-3 py-1.5 text-xs">Refund tenant</button>
+                    <button onClick={async () => { await api.post(`/admin/disputes/${p._id}`, { resolution: 'release' }); load('disputes'); }} className="btn-outline px-3 py-1.5 text-xs">Release to landlord</button>
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       )}
 
       {tab === 'fraud' && (
         <section className="card">
-          <h2 className="font-semibold">Bypass attempts (chat)</h2>
-          {(data.items || []).length === 0 ? <p className="mt-2 text-sm text-gray-500">No flagged conversations.</p> : (
-            <ul className="mt-3 divide-y">
+          <h2 className="mb-3 font-semibold">Bypass attempts (chat)</h2>
+          {(data.items || []).length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <svg className="mb-3 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              <p className="font-medium text-gray-700">No flagged conversations</p>
+              <p className="mt-1 text-sm text-gray-500">All chat activity looks clean.</p>
+            </div>
+          ) : (
+            <div className="-m-5 divide-y">
               {data.items.map((c) => (
-                <li key={c._id} className="py-3">
-                  <p className="font-medium">{c.property?.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {c.participants?.map((p) => `${p.fullName} (${p.role}, warns:${p.bypassWarnings})`).join(' · ')}
+                <div key={c._id} className="px-5 py-4 transition hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{c.property?.title}</p>
+                    <span className="badge-warn">{c.bypassAttempts || 0} blocked</span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-gray-500">
+                    {c.participants?.map((p) => `${p.fullName} (${p.role}, warns:${p.bypassWarnings})`).join(' &middot; ')}
                   </p>
-                  <p className="mt-1"><span className="badge-warn">{c.bypassAttempts} blocked attempts</span></p>
                   <div className="mt-2 flex gap-2">
                     {c.participants?.map((p) => (
-                      <button key={p._id} onClick={async () => { await api.post(`/admin/users/${p._id}/suspend`, { reason: 'Repeated bypass attempts' }); load('fraud'); }} className="btn-outline text-xs">Suspend {p.fullName.split(' ')[0]}</button>
+                      <button key={p._id} onClick={async () => { await api.post(`/admin/users/${p._id}/suspend`, { reason: 'Repeated bypass attempts' }); load('fraud'); }} className="btn-outline px-3 py-1.5 text-xs">Suspend {p.fullName.split(' ')[0]}</button>
                     ))}
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       )}

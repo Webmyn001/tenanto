@@ -11,7 +11,9 @@ const NIGERIAN_STATES = [
 export default function StateSelect({ value, onChange, required }) {
   const [filter, setFilter] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -22,6 +24,13 @@ export default function StateSelect({ value, onChange, required }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (activeIndex >= 0 && listRef.current) {
+      const el = listRef.current.children[activeIndex];
+      if (el) el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeIndex]);
 
   const filtered = filter
     ? NIGERIAN_STATES
@@ -35,6 +44,38 @@ export default function StateSelect({ value, onChange, required }) {
           return a.localeCompare(b);
         })
     : NIGERIAN_STATES;
+
+  function select(state) {
+    onChange(state);
+    setFilter('');
+    setIsOpen(false);
+    setActiveIndex(-1);
+  }
+
+  function handleKeyDown(e) {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { setIsOpen(true); setActiveIndex(0); e.preventDefault(); }
+      return;
+    }
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (activeIndex >= 0 && filtered[activeIndex]) select(filtered[activeIndex]);
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        setActiveIndex(-1);
+        break;
+    }
+  }
 
   return (
     <div className="relative" ref={containerRef}>
@@ -52,19 +93,22 @@ export default function StateSelect({ value, onChange, required }) {
             onChange={(e) => {
               setFilter(e.target.value);
               setIsOpen(true);
+              setActiveIndex(-1);
             }}
             onFocus={() => setIsOpen(true)}
+            onKeyDown={handleKeyDown}
             required={required}
           />
           {isOpen && (
-            <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+            <ul ref={listRef} className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
               {filtered.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-gray-500">No matches</li>
-              ) : filtered.map((state) => (
+              ) : filtered.map((state, i) => (
                 <li key={state}>
                   <button type="button"
-                    onClick={() => { onChange(state); setFilter(''); setIsOpen(false); }}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-brand-50">
+                    onClick={() => select(state)}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    className={`block w-full px-3 py-2 text-left text-sm ${i === activeIndex ? 'bg-brand-50' : 'hover:bg-brand-50'}`}>
                     {state}
                   </button>
                 </li>

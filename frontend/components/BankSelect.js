@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import api from '../lib/api';
 
-export default function SchoolSelect({ value, onChange, required }) {
-  const [schools, setSchools] = useState([]);
+export default function BankSelect({ value, onChange, required }) {
+  const [banks, setBanks] = useState([]);
   const [filter, setFilter] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -10,7 +10,7 @@ export default function SchoolSelect({ value, onChange, required }) {
   const listRef = useRef(null);
 
   useEffect(() => {
-    api.get('/lookup/schools').then(({ data }) => setSchools(data.schools)).catch(() => {});
+    api.get('/verify/banks').then(({ data }) => setBanks(data.banks)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -30,22 +30,14 @@ export default function SchoolSelect({ value, onChange, required }) {
     }
   }, [activeIndex]);
 
+  const selected = banks.find(b => b.code === value);
   const filtered = filter
-    ? schools
-        .filter((s) => (s.name + ' ' + s.short).toLowerCase().includes(filter.toLowerCase()))
-        .sort((a, b) => {
-          const f = filter.toLowerCase();
-          const aStarts = a.name.toLowerCase().startsWith(f) || a.short.toLowerCase().startsWith(f);
-          const bStarts = b.name.toLowerCase().startsWith(f) || b.short.toLowerCase().startsWith(f);
-          if (aStarts && !bStarts) return -1;
-          if (!aStarts && bStarts) return 1;
-          return a.name.localeCompare(b.name);
-        })
-    : schools;
+    ? banks.filter((b) => b.name.toLowerCase().includes(filter.toLowerCase()))
+    : banks;
   const results = filtered.slice(0, 12);
 
-  function select(s) {
-    onChange(s.name);
+  function select(b) {
+    onChange(b.code);
     setFilter('');
     setIsOpen(false);
     setActiveIndex(-1);
@@ -78,16 +70,16 @@ export default function SchoolSelect({ value, onChange, required }) {
 
   return (
     <div className="relative" ref={containerRef}>
-      {value ? (
+      {selected ? (
         <div className="flex items-center gap-2">
-          <input className="input flex-1" value={value} readOnly />
+          <input className="input flex-1" value={selected.name} readOnly />
           <button type="button" onClick={() => onChange('')} className="btn-outline">Change</button>
         </div>
       ) : (
         <>
           <input
             className="input"
-            placeholder="Search schools…"
+            placeholder="Search banks…"
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);
@@ -102,13 +94,13 @@ export default function SchoolSelect({ value, onChange, required }) {
             <ul ref={listRef} className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
               {results.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-gray-500">No matches</li>
-              ) : results.map((s, i) => (
-                <li key={s.name}>
+              ) : results.map((b, i) => (
+                <li key={b.code}>
                   <button type="button"
-                    onClick={() => select(s)}
+                    onClick={() => select(b)}
                     onMouseEnter={() => setActiveIndex(i)}
                     className={`block w-full px-3 py-2 text-left text-sm ${i === activeIndex ? 'bg-brand-50' : 'hover:bg-brand-50'}`}>
-                    {s.name} <span className="text-xs text-gray-500">· {s.short} · {s.state}</span>
+                    {b.name}
                   </button>
                 </li>
               ))}

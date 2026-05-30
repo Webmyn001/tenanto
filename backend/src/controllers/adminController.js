@@ -4,6 +4,8 @@ const Payment = require('../models/Payment');
 const AuditLog = require('../models/AuditLog');
 const { Conversation } = require('../models/Message');
 const { audit, listForActor, listForTarget } = require('../utils/audit');
+const { sendMail } = require('../utils/email');
+const { verificationApproved, verificationRejected } = require('../utils/emailTemplates');
 const jobs = require('../jobs');
 
 async function pendingVerifications(req, res) {
@@ -29,11 +31,44 @@ async function decideVerification(req, res) {
     if (user.role === 'corper') {
       user.badges = [...new Set([...(user.badges || []), 'nysc_approved'])];
     }
+    await user.save();
+    sendMail({
+      to: user.email,
+      subject: 'Your Tenanto verification has been approved',
+      html: verificationApproved({ fullName: user.fullName }),
+    }).catch(e => console.warn('[email] approval send failed:', e.message));
   } else {
     user.verificationStatus = 'rejected';
     user.verificationNotes = notes || '';
+    // Clear all verification data so user can restart fresh
+    user.documents = [];
+    user.selfieUrl = undefined;
+    user.selfieMatchScore = undefined;
+    user.selfieMatchedAt = undefined;
+    user.selfieVideoUrl = undefined;
+    user.livenessScore = undefined;
+    user.livenessPassed = undefined;
+    user.livenessCheckedAt = undefined;
+    user.livenessProviderRef = undefined;
+    if (user.role === 'student') {
+      user.student.schoolEmailVerified = false;
+    } else if (user.role === 'corper') {
+      user.corper.ninVerified = false;
+      user.corper.nin = undefined;
+      user.corper.ninHash = undefined;
+    } else if (user.role === 'landlord') {
+      user.landlord.ninVerified = false;
+      user.landlord.nin = undefined;
+      user.landlord.ninHash = undefined;
+      user.landlord.adminApproved = false;
+    }
+    await user.save();
+    sendMail({
+      to: user.email,
+      subject: 'Your Tenanto verification needs attention',
+      html: verificationRejected({ fullName: user.fullName, notes: notes || '' }),
+    }).catch(e => console.warn('[email] rejection send failed:', e.message));
   }
-  await user.save();
   audit(req, `admin.verification.${decision}`, { kind: 'User', id: user._id }, { decision, notes });
   res.json({ user });
 }

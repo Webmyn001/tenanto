@@ -47,13 +47,17 @@ export default function ListingDetail() {
     <Layout wide>
       <button onClick={() => router.back()} className="btn-ghost mb-3 text-sm">← Back to listings</button>
 
-      {/* Image gallery — single hero on mobile, mosaic on desktop */}
-      <div className="grid gap-2 sm:grid-cols-4 sm:grid-rows-2">
+      {/* Image gallery — responsive mosaic */}
+      <div className="grid gap-1.5 sm:grid-cols-4 sm:grid-rows-2 sm:gap-2">
         {images[0] && (
-          <img src={images[0].url} alt="" className="aspect-[4/3] w-full rounded-2xl object-cover sm:col-span-2 sm:row-span-2 sm:aspect-auto sm:h-full"/>
+          <div className="relative overflow-hidden rounded-xl sm:col-span-2 sm:row-span-2 sm:rounded-2xl">
+            <img src={images[0].url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-500 hover:scale-[1.02] sm:aspect-auto sm:h-full"/>
+          </div>
         )}
         {images.slice(1, 5).map((m, i) => (
-          <img key={i} src={m.url} alt="" className="hidden aspect-[4/3] w-full rounded-2xl object-cover sm:block"/>
+          <div key={i} className="relative overflow-hidden rounded-xl sm:rounded-xl">
+            <img src={m.url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-500 hover:scale-[1.02]"/>
+          </div>
         ))}
       </div>
 
@@ -84,7 +88,7 @@ export default function ListingDetail() {
               <h2 className="font-display font-bold">Walkthrough videos</h2>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {videos.map((v, i) => (
-                  <video key={i} src={v.url} controls className="w-full rounded-xl"/>
+                  <video key={i} src={v.url} controls className="w-full rounded-xl shadow-sm" />
                 ))}
               </div>
             </div>

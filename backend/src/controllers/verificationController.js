@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { lookupNIN } = require('../utils/nin');
 const { sendMail } = require('../utils/email');
+const { schoolEmailVerification } = require('../utils/emailTemplates');
 const { matchSelfieToID } = require('../utils/selfieMatch');
 const { checkLiveness } = require('../utils/liveness');
 const { createTransferRecipient, resolveAccount, listBanks } = require('../utils/paystack');
@@ -119,6 +120,19 @@ async function getBanks(_req, res) {
   res.json({ banks });
 }
 
+async function resolveBankAccount(req, res) {
+  const { accountNumber, bankCode } = req.body;
+  if (!accountNumber || !bankCode) {
+    return res.status(400).json({ error: 'accountNumber and bankCode required' });
+  }
+  try {
+    const resolved = await resolveAccount({ accountNumber, bankCode });
+    res.json({ accountName: resolved.account_name });
+  } catch (e) {
+    res.status(400).json({ error: 'Could not verify account: ' + (e.response?.data?.message || e.message) });
+  }
+}
+
 async function verifyNIN(req, res) {
   const user = req.user;
   if (!['corper', 'landlord'].includes(user.role)) {
@@ -160,16 +174,16 @@ async function startSchoolEmailVerification(req, res) {
   }
 
   const code = crypto.randomInt(100000, 999999).toString();
-  schoolEmailCodes.set(user._id.toString(), { code, schoolEmail, expiresAt: Date.now() + 15 * 60_000 });
+  schoolEmailCodes.set(user._id.toString(), { code, schoolEmail, expiresAt: Date.now() + 5 * 60_000 });
 
   await sendMail({
     to: schoolEmail,
     subject: 'Verify your school email — Tenanto',
-    text: `Your verification code is: ${code}\n\nThis code expires in 15 minutes. If you didn't request this, ignore this email.`,
+    html: schoolEmailVerification({ code, schoolEmail }),
   }).catch((e) => console.warn('[email] send failed:', e.message));
 
-  const dev = process.env.NODE_ENV !== 'production';
-  res.json({ sent: true, ...(dev && { devCode: code }) });
+  console.log(`[school-email] Verification code for ${schoolEmail}: ${code}`);
+  res.json({ sent: true });
 }
 
 async function confirmSchoolEmail(req, res) {
@@ -207,6 +221,7 @@ module.exports = {
   confirmSchoolEmail,
   submitBankAccount,
   getBanks,
+  resolveBankAccount,
   verifyLiveness,
   acceptLandlordRules,
 };

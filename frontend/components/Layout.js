@@ -12,7 +12,7 @@ export default function Layout({ children, wide = false }) {
           <p>© {new Date().getFullYear()} Tenanto — verified, escrow-protected, agent-free.</p>
           <div className="flex gap-4">
             <a href="/legal/TERMS.md" className="hover:text-brand-700">Terms</a>
-            <a href="/legal/LANDLORD_RULES.md" className="hover:text-brand-700">Landlord rules</a>
+            <a href="/legal/landlord-rules" className="hover:text-brand-700">Landlord rules</a>
           </div>
         </div>
       </footer>

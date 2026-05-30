@@ -4,6 +4,7 @@ import VerificationBadge from '../../components/VerificationBadge';
 import api, { getUser, saveAuth, getToken } from '../../lib/api';
 import { compressImage } from '../../lib/image';
 import { validateNIN } from '../../lib/validation';
+import { formatPriceInput } from '../../lib/format';
 
 const STEPS = [
   { id: 1, label: 'Verify Identity' },
@@ -18,7 +19,7 @@ export default function VerifyPage() {
   const [nin, setNin] = useState('');
   const [schoolEmail, setSchoolEmail] = useState('');
   const [schoolCode, setSchoolCode] = useState('');
-  const [devCode, setDevCode] = useState('');
+
   const [docKind, setDocKind] = useState('');
   const [loading, setLoading] = useState({
     nin: false,
@@ -47,8 +48,10 @@ export default function VerifyPage() {
     const u = getUser();
     setUser(u);
     if (u) {
-      if (u.role === 'student') setDocKind('student_id');
-      else if (u.role === 'corper') setDocKind('nysc_id');
+      if (u.role === 'student') {
+        setDocKind('student_id');
+        if (u.student?.schoolEmail) setSchoolEmail(u.student.schoolEmail);
+      } else if (u.role === 'corper') setDocKind('nysc_id');
       else if (u.role === 'landlord') setDocKind('utility_bill');
       if (u.verificationStatus === 'submitted' || u.verificationStatus === 'approved') {
         if (u.verificationStatus === 'approved') setStep(5);
@@ -73,7 +76,7 @@ export default function VerifyPage() {
     }
   }, []);
 
-  if (!user) return null;
+  if (!user) return <Layout><div className="flex min-h-[50vh] items-center justify-center"><span className="spinner h-8 w-8 text-brand-600" /></div></Layout>;
 
   const isSubmitting = user.verificationStatus === 'submitted';
   const isApproved = user.verificationStatus === 'approved';
@@ -120,11 +123,10 @@ export default function VerifyPage() {
   }
 
   async function startSchoolEmail() {
-    setDevCode(''); setLoading({ ...loading, email: true });
+    setLoading({ ...loading, email: true });
     try {
       const { data } = await api.post('/verify/school-email/start', { schoolEmail });
       showToast('Verification code sent to your school email', 'success');
-      if (data.devCode) setDevCode(data.devCode);
     } catch (e) { showToast(e?.response?.data?.error || 'Failed to send code', 'error'); }
     finally { setLoading({ ...loading, email: false }); }
   }
@@ -209,11 +211,12 @@ export default function VerifyPage() {
     setLoading({ ...loading, finalize: true });
     try {
       if (budgetMin && budgetMax) {
-        await api.post('/roommates/profile', { budgetMin: Number(budgetMin), budgetMax: Number(budgetMax) });
+        const strip = (v) => Number(String(v).replace(/,/g, ''));
+        await api.post('/roommates/profile', { budgetMin: strip(budgetMin), budgetMax: strip(budgetMax) });
       }
       await api.post('/verify/documents', { finalize: true });
       setShowConfetti(true);
-      showToast('Your verification has been submitted for review. An admin will review and approve it within 24 hours.', 'success');
+      showToast('Your verification has been submitted. You will receive an email once an admin approves your account.', 'success');
       refresh();
       setTimeout(() => setShowConfetti(false), 4000);
     } catch (e) { showToast(e?.response?.data?.error || 'Submission failed', 'error'); }
@@ -390,7 +393,6 @@ export default function VerifyPage() {
         <button onClick={startSchoolEmail} disabled={loading.email} className="btn-outline mt-3 w-full">
           {loading.email ? <span className="spinner" /> : 'Send verification code'}
         </button>
-        {devCode && <p className="mt-2 text-xs text-gray-500">Dev code: <b>{devCode}</b></p>}
         <input className="input mt-3" placeholder="Enter 6-digit code" value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} />
         <button onClick={confirmSchoolEmail} disabled={loading.confirm} className="btn-primary mt-3 w-full">
           {loading.confirm ? <span className="spinner" /> : 'Confirm code'}
@@ -404,7 +406,7 @@ export default function VerifyPage() {
     if (isLocked && isSelfieUploaded) {
       return (
         <div className="relative w-48 h-48 mx-auto rounded-xl overflow-hidden border-2 border-green-300">
-          <img src={user.selfieUrl} alt="Selfie" className="object-cover w-full h-full" />
+          <img src={user.selfieUrl} alt="Selfie" loading="lazy" className="object-cover w-full h-full" />
           <div className="absolute bottom-0 left-0 right-0 bg-green-600/80 text-white text-xs font-medium text-center py-1.5">
             {isApproved ? '✓ Selfie approved' : '✓ Selfie submitted'}
           </div>
@@ -428,7 +430,7 @@ export default function VerifyPage() {
 
         {!loadingState.selfie && localSelfiePreview && (
           <div className="relative w-full h-48 border rounded-lg overflow-hidden bg-gray-100">
-            <img src={localSelfiePreview} alt="Uploading selfie" className="object-cover w-full h-full" />
+            <img src={localSelfiePreview} alt="Uploading selfie" loading="lazy" className="object-cover w-full h-full" />
             <div className="absolute inset-0 bg-black/35 flex items-center justify-center text-white text-xs font-semibold">
               Processing...
             </div>
@@ -437,7 +439,7 @@ export default function VerifyPage() {
 
         {!loadingState.selfie && !localSelfiePreview && isSelfieUploaded && (
           <div className="relative w-48 h-48 mx-auto rounded-xl overflow-hidden border-2 border-green-300 group">
-            <img src={user.selfieUrl} alt="Selfie" className="object-cover w-full h-full" />
+            <img src={user.selfieUrl} alt="Selfie" loading="lazy" className="object-cover w-full h-full" />
             <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-1.5 text-xs text-white font-medium text-center">
               ✓ Selfie uploaded
             </div>
@@ -473,7 +475,7 @@ export default function VerifyPage() {
                   <a href={d.url} target="_blank" rel="noreferrer" className="text-xs text-brand-700 underline mt-1 font-semibold">View PDF</a>
                 </div>
               ) : (
-                <img src={d.url} alt={d.kind} className="object-cover w-full h-full" />
+                <img src={d.url} alt={d.kind} loading="lazy" className="object-cover w-full h-full" />
               )}
               <div className="absolute bottom-0 left-0 right-0 bg-green-600/80 px-3 py-1.5 text-xs text-white capitalize font-medium">
                 ✓ {d.kind.replace('_', ' ')} {isApproved ? 'approved' : 'submitted'}
@@ -491,6 +493,7 @@ export default function VerifyPage() {
           <h2 className="font-semibold">Upload Documents</h2>
         </div>
         <p className="text-sm text-gray-600 mb-3">Upload the documents required for your role. (Max 900KB. Images compressed automatically)</p>
+          {user.role === 'landlord' && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">As a landlord, you need to upload <b>2 documents</b>: a <b>utility bill</b> (e.g. electricity, water, or waste bill) and a <b>property ownership document</b> (e.g. deed of assignment, C of O, or rent receipt from the head landlord).</p>}
 
         {loadingState.doc && (
           <div className="flex items-center justify-center p-6 border rounded-lg bg-gray-50 border-dashed">
@@ -503,7 +506,7 @@ export default function VerifyPage() {
             {localDocPreview === 'pdf' ? (
               <span className="text-sm font-semibold text-gray-500">📄 PDF Document</span>
             ) : (
-              <img src={localDocPreview} alt="Uploading" className="object-cover w-full h-full" />
+              <img src={localDocPreview} alt="Uploading" loading="lazy" className="object-cover w-full h-full" />
             )}
             <div className="absolute inset-0 bg-black/35 flex items-center justify-center text-white text-xs font-semibold">
               Processing...
@@ -524,7 +527,7 @@ export default function VerifyPage() {
                       <a href={d.url} target="_blank" rel="noreferrer" className="text-xs text-brand-700 underline mt-1 font-semibold">View PDF</a>
                     </div>
                   ) : (
-                    <img src={d.url} alt={d.kind} className="object-cover w-full h-full" />
+                    <img src={d.url} alt={d.kind} loading="lazy" className="object-cover w-full h-full" />
                   )}
                   {!isLocked && (
                     <div className="absolute top-2 right-2">
@@ -641,10 +644,10 @@ export default function VerifyPage() {
                 <p className="text-sm font-semibold text-gray-700 mb-2">Housing budget (optional)</p>
                 <p className="text-xs text-gray-500 mb-3">Set your yearly budget for roommate matching. You can adjust this later.</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="label text-xs">Min (₦/yr)</label>
-                    <input className="input" type="number" placeholder="e.g. 200000" min="0" step="50000" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} /></div>
+                    <div><label className="label text-xs">Min (₦/yr)</label>
+                    <input className="input" type="text" inputMode="numeric" placeholder="e.g. 200,000" value={budgetMin} onChange={(e) => setBudgetMin(formatPriceInput(e.target.value))} /></div>
                   <div><label className="label text-xs">Max (₦/yr)</label>
-                    <input className="input" type="number" placeholder="e.g. 500000" min="0" step="50000" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} /></div>
+                    <input className="input" type="text" inputMode="numeric" placeholder="e.g. 500,000" value={budgetMax} onChange={(e) => setBudgetMax(formatPriceInput(e.target.value))} /></div>
                 </div>
               </div>
             )}
@@ -710,8 +713,8 @@ export default function VerifyPage() {
   // ─── Render ────────────────────────────────────────────────────────
   return (
     <Layout>
-      <ConfettiOverlay />
-      <ToastBar />
+      {ConfettiOverlay()}
+      {ToastBar()}
 
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 flex items-center justify-between">
@@ -719,18 +722,15 @@ export default function VerifyPage() {
           <VerificationBadge user={user} />
         </div>
 
-        <StepIndicator />
+        {StepIndicator()}
 
-        {isApproved ? <Step4Submit /> : (
-          <>
-            {step === 1 && <Step1Identity />}
-            {step === 2 && <Step2Selfie />}
-            {step === 3 && <Step3Documents />}
-            {step === 4 && <Step4Submit />}
-          </>
-        )}
+        {isApproved ? Step4Submit()
+         : step === 1 ? Step1Identity()
+         : step === 2 ? Step2Selfie()
+         : step === 3 ? Step3Documents()
+         : Step4Submit()}
 
-        <NavButtons />
+        {NavButtons()}
 
         <div className="card mt-6">
           <h3 className="font-semibold">What happens next</h3>
@@ -739,6 +739,16 @@ export default function VerifyPage() {
             You'll get an email when you're approved. Until then you can browse listings but can't
             book inspections or pay.
           </p>
+          {user.role === 'landlord' && (
+            <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm text-gray-600">
+              <p className="font-medium text-gray-700">Landlord checklist:</p>
+              <ul className="mt-1 list-inside space-y-0.5">
+                <li>✓ Upload a <b>selfie</b> (step 2)</li>
+                <li>✓ Upload a <b>utility bill</b> (step 3)</li>
+                <li>✓ Upload a <b>property ownership document</b> (step 3)</li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

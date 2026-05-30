@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import api from '../../lib/api';
-import { naira } from '../../lib/format';
+import { naira, formatPriceInput } from '../../lib/format';
 
 export default function NewPayment() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function NewPayment() {
     try {
       const { data } = await api.get(`/lookup/email?email=${encodeURIComponent(contribEmail)}`);
       if (contributors.find((c) => c.user === data.user._id)) return showToast('Already added', 'error');
-      setContributors([...contributors, { user: data.user._id, email: data.user.email, name: data.user.fullName, amount: Number(contribAmount) }]);
+      setContributors([...contributors, { user: data.user._id, email: data.user.email, name: data.user.fullName, amount: Number(contribAmount.replace(/,/g, '')) }]);
       setContribEmail(''); setContribAmount('');
     } catch (e) { showToast(e?.response?.data?.error || 'No user with that email — they need to sign up first', 'error'); }
   }
@@ -123,8 +123,8 @@ export default function NewPayment() {
               <div className="mt-3 flex gap-2">
                 <input type="email" className="input flex-1" placeholder="roommate@example.com"
                   value={contribEmail} onChange={(e) => setContribEmail(e.target.value)} />
-                <input type="number" className="input w-32" placeholder="₦ share"
-                  value={contribAmount} onChange={(e) => setContribAmount(e.target.value)} />
+                <input type="text" inputMode="numeric" className="input w-32" placeholder="₦ share"
+                  value={contribAmount} onChange={(e) => setContribAmount(formatPriceInput(e.target.value))} />
                 <button type="button" onClick={addContributor} className="btn-outline">Add</button>
               </div>
               <p className="mt-2 text-xs">Sum: <b>{naira(contribSum)}</b> / {naira(totalDue)} {contribSum === totalDue && contributors.length > 0 && <span className="text-brand-700">✓ matches</span>}</p>

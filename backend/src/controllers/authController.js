@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { sign } = require('../utils/jwt');
 const { stateFromNyscCode } = require('../utils/nin');
 const { sendMail } = require('../utils/email');
+const { verifyEmail: verifyEmailTemplate, verifyEmailResend, resetPassword: resetPasswordEmail } = require('../utils/emailTemplates');
 const { resolveAccount, createTransferRecipient } = require('../utils/paystack');
 
 const PHONE_RE = /^(\+?234|0)[789]\d{9}$/;
@@ -53,13 +54,14 @@ async function register(req, res) {
       user.landlord.bankCode = extras.bankCode;
       user.landlord.bankName = extras.bankName;
       user.landlord.accountNumber = extras.accountNumber;
+      if (extras.accountName) user.landlord.accountName = extras.accountName;
     }
   }
 
   // Generate email verification code
   const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
   user.emailVerificationCode = verificationCode;
-  user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  user.emailVerificationExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
   await user.save();
 
@@ -89,15 +91,7 @@ async function register(req, res) {
   sendMail({
     to: user.email,
     subject: 'Verify your Tenanto account',
-    text: `Your email verification code is: ${verificationCode}`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #333;">Welcome to Tenanto!</h2>
-        <p>Thanks for signing up. Please verify your email address using the code below:</p>
-        <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #7c3aed; padding: 20px 0;">${verificationCode}</div>
-        <p style="color: #666; font-size: 14px;">This code expires in 24 hours.</p>
-      </div>
-    `,
+    html: verifyEmailTemplate({ code: verificationCode }),
   }).catch(e => {
     console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
     console.error('VERIFICATION EMAIL FAILED TO SEND!');
@@ -148,23 +142,14 @@ async function forgotPassword(req, res) {
   // Generate 6-digit code
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   user.resetPasswordCode = code;
-  user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+  user.resetPasswordExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
   await user.save();
 
   // Send email in background
   sendMail({
     to: user.email,
     subject: 'Password Reset Code - Tenanto',
-    text: `Your password reset code is: ${code}. It expires in 15 minutes.`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #333;">Password Reset</h2>
-        <p>You requested a password reset. Use the code below to continue:</p>
-        <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #7c3aed; padding: 20px 0;">${code}</div>
-        <p style="color: #666; font-size: 14px;">This code expires in 15 minutes.</p>
-        <p style="color: #999; font-size: 12px; margin-top: 20px;">If you didn't request this, you can safely ignore this email.</p>
-      </div>
-    `,
+    html: resetPasswordEmail({ code }),
   }).catch(e => {
     console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
     console.error('FORGOT PASSWORD EMAIL FAILED TO SEND!');
@@ -235,14 +220,13 @@ async function resendVerification(req, res) {
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   user.emailVerificationCode = code;
-  user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  user.emailVerificationExpires = new Date(Date.now() + 5 * 60 * 1000);
   await user.save();
 
   sendMail({
     to: user.email,
     subject: 'Verify your Tenanto account',
-    text: `Your email verification code is: ${code}`,
-    html: `<div style="font-family: sans-serif; padding: 20px;"><h2>Verification Code</h2><p>Use the code below to verify your account:</p><h1 style="letter-spacing: 5px;">${code}</h1></div>`,
+    html: verifyEmailResend({ code }),
   }).catch(e => console.error('Resend verification email failed:', e.message));
 
   const dev = process.env.NODE_ENV !== 'production';

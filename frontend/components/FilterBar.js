@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatPriceInput } from '../lib/format';
 
 export default function FilterBar({ initial = {}, onApply }) {
   const [open, setOpen] = useState(false);
@@ -15,7 +16,13 @@ export default function FilterBar({ initial = {}, onApply }) {
 
   function apply(e) {
     e?.preventDefault();
-    onApply({ ...f, verifiedOnly: f.verifiedOnly ? 'true' : '' });
+    const strip = (v) => String(v).replace(/,/g, '');
+    onApply({
+      ...f,
+      minPrice: strip(f.minPrice),
+      maxPrice: strip(f.maxPrice),
+      verifiedOnly: f.verifiedOnly ? 'true' : '',
+    });
     setOpen(false);
   }
 
@@ -43,11 +50,11 @@ export default function FilterBar({ initial = {}, onApply }) {
         </div>
         <div>
           <label className="label">Min ₦</label>
-          <input type="number" className="input" value={f.minPrice} onChange={(e) => set('minPrice', e.target.value)} />
+          <input type="text" inputMode="numeric" className="input" value={f.minPrice} onChange={(e) => set('minPrice', formatPriceInput(e.target.value))} />
         </div>
         <div>
           <label className="label">Max ₦</label>
-          <input type="number" className="input" value={f.maxPrice} onChange={(e) => set('maxPrice', e.target.value)} />
+          <input type="text" inputMode="numeric" className="input" value={f.maxPrice} onChange={(e) => set('maxPrice', formatPriceInput(e.target.value))} />
         </div>
         <div>
           <label className="label">Type</label>

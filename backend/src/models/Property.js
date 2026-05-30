@@ -84,13 +84,14 @@ const propertySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Validate media count — spec: min 5 videos, min 8 images — but only when going active
+// Validate media count — but only when going active
 propertySchema.pre('save', function (next) {
   if (this.status === 'active' || this.status === 'pending_review') {
     const images = this.media.filter((m) => m.type === 'image').length;
     const videos = this.media.filter((m) => m.type === 'video').length;
-    if (images < 8) return next(new Error('At least 8 images required to publish'));
-    if (videos < 5) return next(new Error('At least 5 videos required to publish'));
+    if (images < 1) return next(new Error('At least 1 image required to publish'));
+    if (images > 4) return next(new Error('Maximum 4 images allowed'));
+    if (videos > 1) return next(new Error('Maximum 1 video allowed'));
   }
   next();
 });

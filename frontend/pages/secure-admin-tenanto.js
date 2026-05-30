@@ -88,6 +88,7 @@ export default function SecureAdmin() {
   const [password, setPassword] = useState('Admin#1234');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const [showPw, setShowPw] = useState(false);
 
   const [authenticated, setAuthenticated] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
@@ -375,7 +376,16 @@ export default function SecureAdmin() {
               </div>
               <div>
                 <label className="label">Password</label>
-                <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                <div className="relative">
+                  <input className="input pr-10" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1" tabIndex={-1}>
+                    {showPw ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <button type="submit" disabled={authLoading} className="btn-primary w-full">
                 {authLoading ? <span className="spinner" /> : 'Sign in'}
@@ -801,7 +811,16 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
                 <tbody className="divide-y divide-ink-100">
                   {data.items.map(p => (
                     <tr key={p._id} className="hover:bg-cream-50">
-                      <td className="max-w-xs truncate px-4 py-3 font-medium text-ink-900">{p.title}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {p.media?.[0]?.url ? (
+                            <img src={p.media[0].url} alt="" loading="lazy" className="h-10 w-14 shrink-0 rounded-lg object-cover shadow-sm" />
+                          ) : (
+                            <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg bg-ink-100"><svg className="h-4 w-4 text-ink-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg></div>
+                          )}
+                          <span className="font-medium text-ink-900 truncate">{p.title}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-ink-500">{p.landlord?.fullName || '—'}</td>
                       <td className="px-4 py-3 font-medium">{naira(p.annualRent)}</td>
                       <td className="px-4 py-3">
@@ -830,6 +849,11 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
             <div className="space-y-3 md:hidden">
               {data.items.map(p => (
                 <div key={p._id} className="card">
+                  {p.media?.[0]?.url && (
+                    <div className="-mx-5 -mt-5 mb-3 overflow-hidden rounded-t-2xl">
+                      <img src={p.media[0].url} alt="" loading="lazy" className="h-32 w-full object-cover" />
+                    </div>
+                  )}
                   <div className="flex items-start justify-between">
                     <p className="max-w-[75%] truncate font-medium text-ink-900">{p.title}</p>
                     {p.status === 'active' ? <span className="badge">Active</span>
@@ -861,6 +885,8 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
 
 /* ─── Section: Verifications ─────────────────────────────────────── */
 function VerificationsSection({ data, doAction }) {
+  const [viewUser, setViewUser] = useState(null);
+
   if (data.items.length === 0) return <EmptyState message="No pending verifications" icon="verifications" />;
 
   return (
@@ -887,12 +913,63 @@ function VerificationsSection({ data, doAction }) {
               )}
             </div>
             <div className="flex gap-2">
+              <button onClick={() => setViewUser(u)} className="btn-outline flex-1 sm:flex-initial">View Info</button>
               <button onClick={() => doAction(`/admin/verifications/${u._id}`, `${u.fullName.split(' ')[0]} rejected`, true, { decision: 'reject' })} className="btn-outline flex-1 sm:flex-initial">Reject</button>
               <button onClick={() => doAction(`/admin/verifications/${u._id}`, `${u.fullName.split(' ')[0]} approved`, true, { decision: 'approve' })} className="btn-primary flex-1 sm:flex-initial">Approve</button>
             </div>
           </div>
         </div>
       ))}
+
+      {viewUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setViewUser(null)}>
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">User Details</h2>
+              <button onClick={() => setViewUser(null)} className="p-1 text-gray-400 hover:text-gray-700"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Name</span><span className="col-span-2">{viewUser.fullName}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Email</span><span className="col-span-2">{viewUser.email}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Phone</span><span className="col-span-2">{viewUser.phone || '—'}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Role</span><span className="col-span-2 capitalize">{viewUser.role}</span></div>
+
+              {viewUser.role === 'student' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">School</span><span className="col-span-2">{viewUser.student?.schoolName || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">School Email</span><span className="col-span-2">{viewUser.student?.schoolEmail || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Dept</span><span className="col-span-2">{viewUser.student?.department || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Matric No</span><span className="col-span-2">{viewUser.student?.matricNumber || '—'}</span></div>
+                </>
+              )}
+
+              {viewUser.role === 'corper' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">State Code</span><span className="col-span-2">{viewUser.corper?.stateCode || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">State of Service</span><span className="col-span-2">{viewUser.corper?.stateOfService || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">NIN</span><span className="col-span-2">{viewUser.corper?.nin ? '✓ Provided' : '—'}</span></div>
+                </>
+              )}
+
+              {viewUser.role === 'landlord' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Bank</span><span className="col-span-2">{viewUser.landlord?.bankName || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Account No</span><span className="col-span-2">{viewUser.landlord?.accountNumber || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Account Name</span><span className="col-span-2">{viewUser.landlord?.accountName || '—'}</span></div>
+                  <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">NIN</span><span className="col-span-2">{viewUser.landlord?.nin ? '✓ Provided' : '—'}</span></div>
+                </>
+              )}
+
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Selfie</span><span className="col-span-2">{viewUser.selfieUrl ? <div className="flex items-center gap-2"><img src={viewUser.selfieUrl} alt="selfie" loading="lazy" className="h-16 w-16 rounded-lg object-cover border" /><a href={viewUser.selfieUrl} target="_blank" className="text-xs text-brand-700 underline" rel="noreferrer">View full</a></div> : '—'}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Documents</span><span className="col-span-2">{viewUser.documents?.length > 0 ? <div className="flex flex-wrap gap-2">{viewUser.documents.map((d, i) => <div key={i} className="flex items-center gap-1"><img src={d.url} alt={d.kind} loading="lazy" className="h-16 w-16 rounded-lg object-cover border" /><a href={d.url} target="_blank" className="text-xs text-brand-700 underline" rel="noreferrer">{d.kind}</a></div>)}</div> : '—'}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Selfie Match</span><span className="col-span-2">{viewUser.selfieMatchScore != null ? `${viewUser.selfieMatchScore}%` : '—'}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Liveness</span><span className="col-span-2">{viewUser.livenessPassed != null ? (viewUser.livenessPassed ? '✅ Passed' : '❌ Failed') : '—'}</span></div>
+              <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Joined</span><span className="col-span-2">{new Date(viewUser.createdAt).toLocaleDateString()}</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1028,7 +1105,7 @@ function UserDetailModal({ user, payments, loading, onClose, onEdit, onDelete })
       </div>
     );
   }
-  if (!user) return null;
+  if (!user) return <Layout><div className="flex min-h-[50vh] items-center justify-center"><span className="spinner h-8 w-8 text-brand-600" /></div></Layout>;
 
   const tabs = [
     { id: 'profile', label: 'Profile' },
@@ -1117,7 +1194,7 @@ function UserDetailModal({ user, payments, loading, onClose, onEdit, onDelete })
               {user.selfieUrl && (
                 <Section label="Selfie">
                   <a href={user.selfieUrl} target="_blank" rel="noreferrer">
-                    <img src={user.selfieUrl} alt="Selfie" className="h-24 w-24 rounded-xl object-cover shadow-soft" />
+                    <img src={user.selfieUrl} alt="Selfie" loading="lazy" className="h-24 w-24 rounded-xl object-cover shadow-soft" />
                   </a>
                   {user.selfieMatchScore != null && <Row label="Selfie Match" value={`${user.selfieMatchScore}%`} />}
                 </Section>

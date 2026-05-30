@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import SchoolSelect from '../components/SchoolSelect';
 import DepartmentSelect from '../components/DepartmentSelect';
 import StateSelect from '../components/StateSelect';
+import BankSelect from '../components/BankSelect';
 import api, { saveAuth } from '../lib/api';
 import { validatePhone, validateStateCode, formatStateCode } from '../lib/validation';
 
@@ -13,11 +14,11 @@ export default function Register() {
   const router = useRouter();
   const [role, setRole] = useState('student');
   const [form, setForm] = useState({
-    fullName: '', email: '', phone: '', password: '',
+    fullName: '', email: '', phone: '', password: '', confirmPassword: '',
     schoolName: '', schoolEmail: '', department: '', matricNumber: '',
     stateCode: '', stateOfService: '',
     acceptTerms: false,
-    bankCode: '', bankName: '', accountNumber: '',
+    bankCode: '', bankName: '', accountNumber: '', accountName: '',
   });
   const [fieldErr, setFieldErr] = useState({});
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,8 @@ export default function Register() {
   const [toastMsg, setToastMsg] = useState(null);
   const toastRef = useRef(null);
   const [banks, setBanks] = useState([]);
-
+  const [showPw, setShowPw] = useState(false);
+  const [showCp, setShowCp] = useState(false);
   useEffect(() => { api.get('/lookup/schools').then(({ data }) => setSchools(data.schools)).catch(() => {}); }, []);
   useEffect(() => { api.get('/verify/banks').then(({ data }) => setBanks(data.banks)).catch(() => {}); }, []);
 
@@ -57,17 +59,18 @@ export default function Register() {
       const codeVal = validateStateCode(form.stateCode);
       if (!codeVal.ok) errs.stateCode = codeVal.msg;
     }
+    if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match';
     setFieldErr(errs);
     return Object.keys(errs).length === 0;
   }
 
   async function submit(e) {
-    e.preventDefault(); setErr(''); setLoading(true);
+    e.preventDefault(); setLoading(true);
     if (!validate()) { setLoading(false); return; }
     try {
       const payload = { ...form, role };
       if (role !== 'landlord') {
-        delete payload.bankCode; delete payload.bankName; delete payload.accountNumber;
+        delete payload.bankCode; delete payload.bankName; delete payload.accountNumber; delete payload.accountName;
       }
       const { data } = await api.post('/auth/register', payload);
       showToast('Account created successfully! Check your email for the verification code.', 'success');
@@ -148,7 +151,28 @@ export default function Register() {
               <input className={`input ${fieldErr.phone ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="e.g. 08031234567" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); if (fieldErr.phone) setFieldErr({ ...fieldErr, phone: '' }); }} />
               {fieldErr.phone && <p className="mt-1 text-xs text-red-600">{fieldErr.phone}</p>}</div>
             <div className="md:col-span-2"><label className="label">Password</label>
-              <input type="password" className="input" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
+              <div className="relative">
+                <input type={showPw ? 'text' : 'password'} className="input pr-10" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1" tabIndex={-1}>
+                  {showPw ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  )}
+                </button>
+              </div></div>
+            <div className="md:col-span-2"><label className="label">Confirm Password</label>
+              <div className="relative">
+                <input type={showCp ? 'text' : 'password'} className={`input pr-10 ${fieldErr.confirmPassword ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} required minLength={8} value={form.confirmPassword} onChange={(e) => { setForm({ ...form, confirmPassword: e.target.value }); if (fieldErr.confirmPassword) setFieldErr({ ...fieldErr, confirmPassword: '' }); }} />
+                <button type="button" onClick={() => setShowCp(!showCp)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1" tabIndex={-1}>
+                  {showCp ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  )}
+                </button>
+                {fieldErr.confirmPassword && <p className="mt-1 text-xs text-red-600">{fieldErr.confirmPassword}</p>}
+              </div></div>
 
             {role === 'student' && (
               <>
@@ -188,15 +212,14 @@ export default function Register() {
               <>
                 <h3 className="md:col-span-2 font-semibold text-base mt-2 mb-1">Payout Bank Account</h3>
                 <div><label className="label">Bank name</label>
-                  <select className="input" value={form.bankCode} onChange={(e) => {
-                    const bank = banks.find(b => b.code === e.target.value);
-                    setForm({ ...form, bankCode: e.target.value, bankName: bank?.name || '' });
-                  }} required>
-                    <option value="">Select bank</option>
-                    {banks.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
-                  </select></div>
+                  <BankSelect value={form.bankCode} onChange={(v) => {
+                    const bank = banks.find(b => b.code === v);
+                    setForm({ ...form, bankCode: v, bankName: bank?.name || '' });
+                  }} required /></div>
                 <div><label className="label">Account number</label>
                   <input className="input" placeholder="e.g. 0123456789" maxLength={10} value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') })} required /></div>
+                <div><label className="label">Account name</label>
+                  <input className="input" placeholder="e.g. Patrick Stone" value={form.accountName || ''} onChange={(e) => setForm({ ...form, accountName: e.target.value })} required /></div>
               </>
             )}
 

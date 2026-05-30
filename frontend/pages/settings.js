@@ -144,7 +144,7 @@ export default function Settings() {
           <div className="flex items-center gap-4">
             <div className="h-20 w-20 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-300">
               {user.selfieUrl ? (
-                <img src={user.selfieUrl} alt="Avatar" className="h-full w-full object-cover" />
+                <img src={user.selfieUrl} alt="Avatar" loading="lazy" className="h-full w-full object-cover" />
               ) : (
                 <span className="text-3xl">👤</span>
               )}

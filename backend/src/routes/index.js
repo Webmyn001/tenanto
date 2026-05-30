@@ -43,7 +43,7 @@ router.post('/verify/nin', requireAuth, verif.verifyNIN);
 router.post('/verify/school-email/start', requireAuth, verif.startSchoolEmailVerification);
 router.post('/verify/school-email/confirm', requireAuth, verif.confirmSchoolEmail);
 router.post('/verify/bank-account', requireAuth, requireRole('landlord'), verif.submitBankAccount);
-router.get('/verify/banks', requireAuth, verif.getBanks);
+router.get('/verify/banks', verif.getBanks);
 router.post('/verify/liveness', requireAuth, verif.verifyLiveness);
 router.post('/verify/landlord-rules', requireAuth, requireRole('landlord'), verif.acceptLandlordRules);
 
@@ -70,7 +70,7 @@ router.get('/properties/:id/scoring', requireAuth, props.getScoringDetail);
 
 // --- Roommate matching ---
 router.get('/roommates/profile', requireAuth, requireRole('student', 'corper'), roommates.getMyProfile);
-router.post('/roommates/profile', requireAuth, requireRole('student', 'corper'), requireApproved, roommates.upsertProfile);
+router.post('/roommates/profile', requireAuth, requireRole('student', 'corper'), roommates.upsertProfile);
 router.get('/roommates/matches', requireAuth, requireRole('student', 'corper'), roommates.getMatches);
 router.post('/roommates/invite', requireAuth, requireRole('student', 'corper'), requireApproved, roommates.inviteRoommate);
 
