@@ -93,7 +93,7 @@ export default function Register() {
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="mt-1 text-sm text-gray-600">It takes 2 minutes. Verification is the next step.</p>
 
-          <div className="mt-5 grid grid-cols-3 gap-2">
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {roles.map((r) => (
               <button
                 key={r.id}

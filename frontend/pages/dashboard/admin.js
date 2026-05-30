@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState('analytics');
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [viewProperty, setViewProperty] = useState(null);
 
   useEffect(() => { setUser(getUser()); }, []);
 
@@ -52,9 +53,9 @@ export default function AdminDashboard() {
         <p className="text-sm text-gray-500">Manage users, listings, and platform activity.</p>
       </div>
 
-      <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-6 flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 scrollbar-none">
         {['analytics', 'verifications', 'listings', 'disputes', 'fraud'].map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium capitalize transition ${tab === t ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium capitalize transition sm:flex-1 sm:px-4 ${tab === t ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>{t}</button>
         ))}
       </div>
 
@@ -81,17 +82,17 @@ export default function AdminDashboard() {
           ) : (
             <div className="-m-5 divide-y">
               {data.items.map((u) => (
-                <div key={u._id} className="px-5 py-4 transition hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{u.fullName} <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${u.role === 'student' ? 'bg-blue-50 text-blue-700' : u.role === 'corper' ? 'bg-green-50 text-green-700' : 'bg-violet-50 text-violet-700'}`}>{u.role}</span></p>
-                      <p className="mt-0.5 text-sm text-gray-500">{u.email}</p>
+                  <div key={u._id} className="px-5 py-4 transition hover:bg-gray-50">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-medium">{u.fullName} <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${u.role === 'student' ? 'bg-blue-50 text-blue-700' : u.role === 'corper' ? 'bg-green-50 text-green-700' : 'bg-violet-50 text-violet-700'}`}>{u.role}</span></p>
+                        <p className="mt-0.5 text-sm text-gray-500">{u.email}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'reject', notes: 'Documents unclear' }); load('verifications'); }} className="btn-outline px-3 py-1.5 text-xs">Reject</button>
+                        <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'approve' }); load('verifications'); }} className="btn-primary px-3 py-1.5 text-xs">Approve</button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'reject', notes: 'Documents unclear' }); load('verifications'); }} className="btn-outline px-3 py-1.5 text-xs">Reject</button>
-                      <button onClick={async () => { await api.post(`/admin/verifications/${u._id}`, { decision: 'approve' }); load('verifications'); }} className="btn-primary px-3 py-1.5 text-xs">Approve</button>
-                    </div>
-                  </div>
                   {u.documents?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {u.documents.map((d, i) => (
@@ -119,7 +120,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="-m-5 divide-y">
               {data.items.map((p) => (
-                <div key={p._id} className="flex items-center justify-between px-5 py-4 transition hover:bg-gray-50">
+                <div key={p._id} className="flex flex-col gap-3 px-5 py-4 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     {p.media?.[0]?.url ? (
                       <img src={p.media[0].url} alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded-lg object-cover shadow-sm" />
@@ -128,10 +129,11 @@ export default function AdminDashboard() {
                     )}
                     <div className="min-w-0">
                       <p className="font-medium truncate">{p.title}</p>
-                      <p className="mt-0.5 text-sm text-gray-500">{p.area} &middot; {naira(p.annualRent)}/yr &middot; by {p.landlord?.fullName}</p>
+                      <p className="mt-0.5 text-sm text-gray-500 truncate">{p.area} &middot; {naira(p.annualRent)}/yr &middot; by {p.landlord?.fullName}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setViewProperty(p)} className="btn-ghost px-2.5 py-1.5 text-xs">View</button>
                     <button onClick={async () => { await api.post(`/admin/listings/${p._id}`, { decision: 'reject', reason: 'Insufficient detail' }); load('listings'); }} className="btn-outline px-3 py-1.5 text-xs">Reject</button>
                     <button onClick={async () => { await api.post(`/admin/listings/${p._id}`, { decision: 'approve' }); load('listings'); }} className="btn-primary px-3 py-1.5 text-xs">Approve</button>
                   </div>
@@ -140,6 +142,10 @@ export default function AdminDashboard() {
             </div>
           )}
         </section>
+      )}
+
+      {viewProperty && (
+        <PropertyDetailModal property={viewProperty} naira={naira} onClose={() => setViewProperty(null)} />
       )}
 
       {tab === 'disputes' && (
@@ -200,6 +206,71 @@ export default function AdminDashboard() {
           )}
         </section>
       )}
+      {viewProperty && (
+        <PropertyDetailModal property={viewProperty} naira={naira} onClose={() => setViewProperty(null)} />
+      )}
     </Layout>
+  );
+}
+
+function PropertyDetailModal({ property, naira, onClose }) {
+  const images = property.media?.filter(m => m.type === 'image') || [];
+  const videos = property.media?.filter(m => m.type === 'video') || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Property Details</h2>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+
+        {images.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {images.slice(0, 4).map((m, i) => (
+              <img key={i} src={m.url} alt="" loading="lazy" className="aspect-[4/3] rounded-xl object-cover border border-gray-100" />
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-3 text-sm">
+          <Row label="Title" value={property.title} bold />
+          <Row label="Area" value={property.area} />
+          <Row label="Full Address" value={property.fullAddress || '—'} />
+          <Row label="Landlord" value={property.landlord?.fullName || '—'} />
+          <Row label="Type" value={property.propertyType?.replace(/-/g, ' ')} />
+          <Row label="Furnishing" value={property.furnishing} />
+          <Row label="Bed / Bath" value={`${property.bedrooms} bed / ${property.bathrooms} bath`} />
+          <Row label="Annual Rent" value={naira(property.annualRent)} bold />
+          <Row label="Inspection Fee" value={naira(property.inspectionFee)} />
+          <Row label="Status" value={property.status?.replace(/_/g, ' ')} />
+          {property.rejectionReason && <Row label="Rejection Reason" value={property.rejectionReason} />}
+          <Row label="Featured" value={property.featured ? 'Yes' : 'No'} />
+          <Row label="Views" value={String(property.viewCount || 0)} />
+          <Row label="Created" value={new Date(property.createdAt).toLocaleDateString()} />
+          <div className="border-b pb-2"><span className="font-medium text-gray-500">Description</span><p className="mt-1 text-gray-600 whitespace-pre-line">{property.description}</p></div>
+
+          {videos.length > 0 && (
+            <div className="border-b pb-2">
+              <p className="mb-2 font-medium text-gray-500">Videos</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {videos.map((v, i) => (
+                  <video key={i} src={v.url} controls className="w-full rounded-lg" />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, bold }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 border-b pb-2">
+      <span className="font-medium text-gray-500">{label}</span>
+      <span className={`col-span-2 ${bold ? 'font-semibold' : ''}`}>{value}</span>
+    </div>
   );
 }

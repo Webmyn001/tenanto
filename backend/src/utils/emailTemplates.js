@@ -90,6 +90,68 @@ function verificationApproved({ fullName }) {
 </html>`;
 }
 
+function listingApproved({ fullName, propertyTitle, propertyUrl }) {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f5f2eb;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f2eb;padding:24px 16px">
+<tr><td align="center">
+<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
+<tr><td style="text-align:center;padding-bottom:24px">
+<span style="font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:700;color:#0f635c">Tenanto</span>
+</td></tr>
+<tr><td style="background-color:#ffffff;border-radius:16px;padding:32px 24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+<h1 style="font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:700;color:#1a1a2e;margin:0 0 8px;text-align:center">Listing Approved ✅</h1>
+<p style="font-size:14px;line-height:1.6;color:#6b7280;text-align:center;margin:0 0 24px">Hi <b>${fullName}</b>, your property <b>${propertyTitle}</b> has been approved and is now live on Tenanto. Students and corpers can now find and book it.</p>
+<div style="text-align:center;margin-bottom:24px">
+<a href="${propertyUrl}" style="display:inline-block;background-color:#0f635c;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:8px">View Listing</a>
+</div>
+<p style="font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;margin:0">If you have any questions, reply to this email.</p>
+</td></tr>
+<tr><td style="text-align:center;padding-top:20px">
+<p style="font-size:11px;color:#9ca3af;margin:0 0 4px">Tenanto — Agent-free verified housing marketplace</p>
+<p style="font-size:11px;color:#d1d5db;margin:0">&copy; ${new Date().getFullYear()} Tenanto. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function listingRejected({ fullName, propertyTitle, reason }) {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f5f2eb;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f2eb;padding:24px 16px">
+<tr><td align="center">
+<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
+<tr><td style="text-align:center;padding-bottom:24px">
+<span style="font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:700;color:#0f635c">Tenanto</span>
+</td></tr>
+<tr><td style="background-color:#ffffff;border-radius:16px;padding:32px 24px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+<h1 style="font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:700;color:#1a1a2e;margin:0 0 8px;text-align:center">Listing Update</h1>
+<p style="font-size:14px;line-height:1.6;color:#6b7280;text-align:center;margin:0 0 16px">Hi <b>${fullName}</b>, your property <b>${propertyTitle}</b> could not be approved at this time.</p>
+${reason ? `<div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-bottom:20px"><p style="font-size:13px;color:#991b1b;margin:0;text-align:center"><b>Reason:</b> ${reason}</p></div>` : ''}
+<p style="font-size:14px;line-height:1.6;color:#6b7280;text-align:center;margin:0 0 24px">You can edit your listing and resubmit it for review.</p>
+<div style="text-align:center;margin-bottom:24px">
+<a href="https://tenanto.onrender.com/dashboard/landlord" style="display:inline-block;background-color:#0f635c;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:8px">Go to Dashboard</a>
+</div>
+<p style="font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;margin:0">If you have any questions, reply to this email.</p>
+</td></tr>
+<tr><td style="text-align:center;padding-top:20px">
+<p style="font-size:11px;color:#9ca3af;margin:0 0 4px">Tenanto — Agent-free verified housing marketplace</p>
+<p style="font-size:11px;color:#d1d5db;margin:0">&copy; ${new Date().getFullYear()} Tenanto. All rights reserved.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
 function verificationRejected({ fullName, notes }) {
   return `<!DOCTYPE html>
 <html>
@@ -122,4 +184,4 @@ ${notes ? `<div style="background-color:#fef2f2;border:1px solid #fecaca;border-
 </html>`;
 }
 
-module.exports = { verifyEmail, verifyEmailResend, resetPassword, schoolEmailVerification, verificationApproved, verificationRejected };
+module.exports = { verifyEmail, verifyEmailResend, resetPassword, schoolEmailVerification, verificationApproved, verificationRejected, listingApproved, listingRejected };

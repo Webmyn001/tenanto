@@ -96,6 +96,7 @@ router.get('/chat/conversations', requireAuth, chat.listConversations);
 router.get('/chat/conversations/:id/messages', requireAuth, chat.listMessages);
 router.post('/chat/conversations/:id/messages', requireAuth, rl.chatLimiter, chat.sendMessage);
 router.post('/chat/conversations/:id/read', requireAuth, chat.markAsRead);
+router.get('/chat/unread-count', requireAuth, chat.unreadCount);
 router.post('/chat/report-bypass', requireAuth, chat.reportBypass);
 
 // --- Payments ---

@@ -776,6 +776,7 @@ function UsersSection({ data, search, onSearch, role, onRole, page, onPage, onVi
 /* ─── Section: Properties ────────────────────────────────────────── */
 function PropertiesSection({ data, search, onSearch, status, onStatus, page, onPage, doAction }) {
   const statuses = ['', 'active', 'pending_review', 'rejected', 'rented', 'draft', 'archived'];
+  const [viewProperty, setViewProperty] = useState(null);
 
   return (
     <div>
@@ -805,7 +806,7 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
                     <th className="px-4 py-3">Rent</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Created</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
@@ -832,12 +833,15 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
                       </td>
                       <td className="px-4 py-3 text-ink-500">{shortDate(p.createdAt)}</td>
                       <td className="px-4 py-3 text-right">
-                        {p.status === 'pending_review' && (
-                          <div className="flex justify-end gap-1.5">
-                            <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing approved', true)} className="btn-primary text-xs px-2.5 py-1.5">Approve</button>
-                            <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing rejected', true)} className="btn-outline text-xs px-2.5 py-1.5">Reject</button>
-                          </div>
-                        )}
+                        <div className="flex justify-end gap-1.5">
+                          <button onClick={() => setViewProperty(p)} className="btn-ghost text-xs px-2.5 py-1.5">View</button>
+                          {p.status === 'pending_review' && (
+                            <>
+                              <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing approved', true, { decision: 'approve' })} className="btn-primary text-xs px-2.5 py-1.5">Approve</button>
+                              <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing rejected', true, { decision: 'reject' })} className="btn-outline text-xs px-2.5 py-1.5">Reject</button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -866,12 +870,15 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
                     <span className="font-medium text-ink-900">{naira(p.annualRent)}</span>
                     <span>{shortDate(p.createdAt)}</span>
                   </div>
-                  {p.status === 'pending_review' && (
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing approved')} className="btn-primary flex-1 text-xs">Approve</button>
-                      <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing rejected')} className="btn-outline flex-1 text-xs">Reject</button>
-                    </div>
-                  )}
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => setViewProperty(p)} className="btn-ghost flex-1 text-xs">View</button>
+                    {p.status === 'pending_review' && (
+                      <>
+                        <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing approved', true, { decision: 'approve' })} className="btn-primary flex-1 text-xs">Approve</button>
+                        <button onClick={() => doAction(`/admin/listings/${p._id}`, 'Listing rejected', true, { decision: 'reject' })} className="btn-outline flex-1 text-xs">Reject</button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -879,6 +886,71 @@ function PropertiesSection({ data, search, onSearch, status, onStatus, page, onP
             <Pagination page={page} pages={data.pages} onChange={onPage} />
           </>
         )}
+
+      {/* Property Detail Modal */}
+      {viewProperty && (
+        <PropertyDetailModal property={viewProperty} onClose={() => setViewProperty(null)} />
+      )}
+    </div>
+  );
+}
+
+function PropertyDetailModal({ property, onClose }) {
+  const images = property.media?.filter(m => m.type === 'image') || [];
+  const videos = property.media?.filter(m => m.type === 'video') || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold font-display">Property Details</h2>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+
+        {images.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {images.slice(0, 4).map((m, i) => (
+              <img key={i} src={m.url} alt="" loading="lazy" className="aspect-[4/3] rounded-xl object-cover border border-gray-100" />
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Title</span><span className="col-span-2 font-semibold">{property.title}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Area</span><span className="col-span-2">{property.area}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Full Address</span><span className="col-span-2">{property.fullAddress || '—'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Landlord</span><span className="col-span-2">{property.landlord?.fullName || '—'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Email</span><span className="col-span-2">{property.landlord?.email || '—'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Type</span><span className="col-span-2 capitalize">{property.propertyType?.replace(/-/g, ' ')}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Furnishing</span><span className="col-span-2 capitalize">{property.furnishing}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Bed / Bath</span><span className="col-span-2">{property.bedrooms} bed / {property.bathrooms} bath</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Annual Rent</span><span className="col-span-2 font-semibold">{naira(property.annualRent)}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Inspection Fee</span><span className="col-span-2">{naira(property.inspectionFee)}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Installments</span><span className="col-span-2">{property.installmentEnabled ? `Yes — ${property.installmentPlan?.months || 6} months` : 'No'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Near Schools</span><span className="col-span-2">{property.nearSchools?.join(', ') || '—'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Serving States</span><span className="col-span-2">{property.servingStates?.join(', ') || '—'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Distance</span><span className="col-span-2">{property.distanceToAnchorKm != null ? `${property.distanceToAnchorKm} km` : '—'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Status</span><span className="col-span-2"><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
+            property.status === 'active' ? 'bg-green-50 text-green-700' : property.status === 'pending_review' ? 'bg-amber-50 text-amber-700' : property.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
+          }`}>{property.status?.replace(/_/g, ' ')}</span></span></div>
+          {property.rejectionReason && <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Rejection Reason</span><span className="col-span-2 text-red-600">{property.rejectionReason}</span></div>}
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Featured</span><span className="col-span-2">{property.featured ? 'Yes' : 'No'}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Views</span><span className="col-span-2">{property.viewCount || 0}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Created</span><span className="col-span-2">{new Date(property.createdAt).toLocaleDateString()}</span></div>
+          <div className="grid grid-cols-3 gap-2 border-b pb-2"><span className="font-medium text-gray-500">Description</span><span className="col-span-2 text-gray-600 whitespace-pre-line">{property.description}</span></div>
+
+          {videos.length > 0 && (
+            <div className="border-b pb-2">
+              <p className="mb-2 font-medium text-gray-500">Videos</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {videos.map((v, i) => (
+                  <video key={i} src={v.url} controls className="w-full rounded-lg" />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import AddressGate from '../../components/AddressGate';
+import ImageViewer from '../../components/ImageViewer';
 import api, { getUser } from '../../lib/api';
 import { naira } from '../../lib/format';
 
@@ -12,6 +13,7 @@ export default function ListingDetail() {
   const [user, setUser] = useState(null);
   const [bookingDate, setBookingDate] = useState('');
   const [err, setErr] = useState('');
+  const [viewerIndex, setViewerIndex] = useState(null);
 
   useEffect(() => { setUser(getUser()); }, []);
   useEffect(() => {
@@ -50,16 +52,32 @@ export default function ListingDetail() {
       {/* Image gallery — responsive mosaic */}
       <div className="grid gap-1.5 sm:grid-cols-4 sm:grid-rows-2 sm:gap-2">
         {images[0] && (
-          <div className="relative overflow-hidden rounded-xl sm:col-span-2 sm:row-span-2 sm:rounded-2xl">
-            <img src={images[0].url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-500 hover:scale-[1.02] sm:aspect-auto sm:h-full"/>
+          <div className="group relative overflow-hidden rounded-xl sm:col-span-2 sm:row-span-2 sm:rounded-2xl">
+            <img src={images[0].url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.03] sm:aspect-auto sm:h-full"/>
+            <button onClick={() => setViewerIndex(0)} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg bg-black/40 text-white/80 opacity-0 transition-all duration-200 hover:bg-black/60 hover:text-white group-hover:opacity-100 sm:right-3 sm:top-3 sm:h-9 sm:w-9">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
           </div>
         )}
         {images.slice(1, 5).map((m, i) => (
-          <div key={i} className="relative overflow-hidden rounded-xl sm:rounded-xl">
-            <img src={m.url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-500 hover:scale-[1.02]"/>
+          <div key={i} className="group relative overflow-hidden rounded-xl sm:rounded-xl">
+            <img src={m.url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.03]"/>
+            <button onClick={() => setViewerIndex(i + 1)} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg bg-black/40 text-white/80 opacity-0 transition-all duration-200 hover:bg-black/60 hover:text-white group-hover:opacity-100 sm:right-3 sm:top-3 sm:h-9 sm:w-9">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
           </div>
         ))}
       </div>
+
+      {viewerIndex !== null && (
+        <ImageViewer
+          images={images}
+          currentIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+          onPrev={() => setViewerIndex((i) => Math.max(0, i - 1))}
+          onNext={() => setViewerIndex((i) => Math.min(images.length - 1, i + 1))}
+        />
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* MAIN COLUMN */}
@@ -151,7 +169,7 @@ export default function ListingDetail() {
 
           <div id="book" className="card">
             <h3 className="font-display font-bold">Book inspection</h3>
-            <input type="datetime-local" className="input mt-3" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+            <input type="datetime-local" className="input mt-3" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} min={new Date().toISOString().slice(0, 16)} />
             {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
             <button onClick={bookInspection} className="btn-primary mt-3 w-full">Pay {naira(p.inspectionFee)} & book</button>
             <button onClick={startChat} className="btn-outline mt-2 w-full">💬 Message landlord</button>

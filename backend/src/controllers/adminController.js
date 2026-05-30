@@ -5,7 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const { Conversation } = require('../models/Message');
 const { audit, listForActor, listForTarget } = require('../utils/audit');
 const { sendMail } = require('../utils/email');
-const { verificationApproved, verificationRejected } = require('../utils/emailTemplates');
+const { verificationApproved, verificationRejected, listingApproved, listingRejected } = require('../utils/emailTemplates');
 const jobs = require('../jobs');
 
 async function pendingVerifications(req, res) {
@@ -75,19 +75,32 @@ async function decideVerification(req, res) {
 
 async function pendingListings(req, res) {
   const items = await Property.find({ status: 'pending_review' })
-    .populate('landlord', 'fullName trustScore badges')
+    .select('+fullAddress')
+    .populate('landlord', 'fullName email trustScore badges')
     .sort({ updatedAt: 1 });
   res.json({ items });
 }
 
 async function decideListing(req, res) {
   const { decision, reason } = req.body;
-  const property = await Property.findById(req.params.id).select('+fullAddress');
+  const property = await Property.findById(req.params.id).select('+fullAddress').populate('landlord', 'fullName email');
   if (!property) return res.status(404).json({ error: 'Not found' });
   property.status = decision === 'approve' ? 'active' : 'rejected';
   if (decision !== 'approve') property.rejectionReason = reason || '';
   await property.save();
   audit(req, `admin.listing.${decision}`, { kind: 'Property', id: property._id }, { decision, reason });
+
+  // Send email to landlord
+  if (property.landlord?.email) {
+    try {
+      const html = decision === 'approve'
+        ? listingApproved({ fullName: property.landlord.fullName, propertyTitle: property.title, propertyUrl: `https://tenanto.onrender.com/listings/${property._id}` })
+        : listingRejected({ fullName: property.landlord.fullName, propertyTitle: property.title, reason });
+      const subject = decision === 'approve' ? 'Your listing is now live on Tenanto' : 'Listing update from Tenanto';
+      sendMail({ to: property.landlord.email, subject, html }).catch(() => {});
+    } catch {}
+  }
+
   res.json({ property });
 }
 
@@ -168,6 +181,7 @@ async function listAllProperties(req, res) {
   const skip = (Math.max(1, Number(page)) - 1) * Math.min(Number(limit), 100);
   const [items, total] = await Promise.all([
     Property.find(filter)
+      .select('+fullAddress')
       .populate('landlord', 'fullName email')
       .sort({ createdAt: -1 })
       .skip(skip)

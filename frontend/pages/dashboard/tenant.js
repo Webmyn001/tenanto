@@ -88,7 +88,7 @@ export default function TenantDashboard() {
         ) : (
           <div className="-m-5 divide-y">
             {inspections.map((i) => (
-              <div key={i._id} className="flex items-center justify-between px-5 py-4 transition hover:bg-gray-50">
+              <div key={i._id} className="flex flex-col gap-3 px-5 py-4 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{i.property?.title}</p>
                   <p className="mt-0.5 text-sm text-gray-500">{shortDate(i.scheduledFor)} &middot; fee {naira(i.inspectionFee)} &middot; {i.feeStatus}</p>

@@ -115,6 +115,15 @@ async function reportBypass(req, res) {
   res.json({ ok: true, note: note || null });
 }
 
+async function unreadCount(req, res) {
+  const count = await Message.countDocuments({
+    sender: { $ne: req.user._id },
+    readBy: { $ne: req.user._id },
+    conversation: { $in: (await Conversation.find({ participants: req.user._id }).select('_id')).map(c => c._id) },
+  });
+  res.json({ count });
+}
+
 module.exports = {
   startConversation,
   listConversations,
@@ -122,4 +131,5 @@ module.exports = {
   markAsRead,
   sendMessage,
   reportBypass,
+  unreadCount,
 };

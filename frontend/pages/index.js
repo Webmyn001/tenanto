@@ -39,10 +39,10 @@ export default function Home() {
 
           {/* Hero card stack */}
           <div className="lg:col-span-2">
-            <div className="relative">
-              <div className="card-elevated rotate-[-2deg] bg-white">
+            <div className="relative flex flex-col gap-4 sm:block">
+              <div className="card-elevated -rotate-1 bg-white sm:rotate-[-2deg]">
                 <div className="flex items-center gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-100 text-lg">🏠</span>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-100 text-lg">🏠</span>
                   <div>
                     <p className="font-semibold">Cozy self-contain · Agbowo</p>
                     <p className="text-xs text-ink-500">University of Ibadan · 0.6 km</p>
@@ -51,10 +51,10 @@ export default function Home() {
                 <hr className="my-3 border-ink-100"/>
                 <div className="flex items-end justify-between">
                   <p className="text-2xl font-extrabold text-brand-700">₦450,000<span className="text-sm font-normal text-ink-500">/yr</span></p>
-                  <span className="badge">✓ Verified</span>
+                  <span className="badge shrink-0">✓ Verified</span>
                 </div>
               </div>
-              <div className="card-elevated absolute -right-3 -bottom-4 rotate-[3deg] bg-white sm:-right-6">
+              <div className="card-elevated rotate-1 bg-white sm:absolute sm:-right-6 sm:-bottom-4 sm:rotate-[3deg]">
                 <p className="text-xs uppercase tracking-wider text-ink-500">Inspection scheduled</p>
                 <p className="mt-1 font-semibold">Sat, 10:00 AM</p>
                 <p className="mt-2 text-xs text-ink-500">QR code unlocks address</p>

@@ -263,11 +263,11 @@ export default function VerifyPage() {
     const displaySteps = isApproved ? [...STEPS, { id: 5, label: 'Approved' }] : STEPS;
     return (
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-0 sm:gap-2">
           {displaySteps.map((s, i) => (
-            <div key={s.id} className="flex items-center flex-1">
+            <div key={s.id} className="flex items-center flex-1 min-w-0">
               <div className="flex flex-col items-center">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 ${
                   step > s.id || (isApproved && s.id === 5)
                     ? 'bg-green-500 text-white'
                     : step === s.id
@@ -275,21 +275,21 @@ export default function VerifyPage() {
                       : 'bg-gray-200 text-gray-500'
                 }`}>
                   {step > s.id || (isApproved && s.id === 5) ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   ) : (
                     s.id
                   )}
                 </div>
-                <span className={`mt-1.5 text-xs font-medium ${
+                <span className={`mt-1 text-[10px] leading-tight text-center sm:text-xs sm:mt-1.5 sm:font-medium ${
                   step === s.id ? 'text-brand-700' : step > s.id || (isApproved && s.id === 5) ? 'text-green-600' : 'text-gray-400'
                 }`}>
                   {isApproved && s.id === 5 ? '✓ Approved' : s.label}
                 </span>
               </div>
               {i < displaySteps.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-2 mt-[-1.5rem] ${
+                <div className={`flex-1 h-0.5 mx-1 sm:mx-2 mt-[-1.5rem] ${
                   step > s.id || (isApproved && s.id < 5) ? 'bg-green-400' : 'bg-gray-200'
                 }`} />
               )}

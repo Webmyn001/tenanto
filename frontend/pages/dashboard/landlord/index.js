@@ -109,7 +109,7 @@ export default function LandlordDashboard() {
               {listings.map((l) => {
                 const st = STATUS_STYLES[l.status] || STATUS_STYLES.draft;
                 return (
-                  <div key={l._id} className="flex items-center justify-between px-5 py-4 transition hover:bg-gray-50">
+                  <div key={l._id} className="flex flex-col gap-3 px-5 py-4 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       {l.media?.[0]?.url ? (
                         <img src={l.media[0].url} alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded-lg object-cover shadow-sm" />
@@ -131,7 +131,7 @@ export default function LandlordDashboard() {
                       )}
                     </div>
                     </div>
-                    <div className="ml-4 flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${st.badge}`}>
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={st.icon} /></svg>
                         {l.status.replace(/_/g, ' ')}
