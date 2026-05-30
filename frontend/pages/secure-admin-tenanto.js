@@ -410,28 +410,53 @@ export default function SecureAdmin() {
         </div>
       )}
 
-      {/* Mobile backdrop */}
+      {/* Mobile full-screen overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-50 flex flex-col bg-white md:hidden">
+          <div className="flex items-center justify-between border-b border-ink-100 px-5 py-4">
+            <div className="flex items-center gap-2 font-display font-extrabold text-brand-800">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 text-white text-sm">T</span>
+              <span>Tenanto</span>
+            </div>
+            <button onClick={() => setSidebarOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-ink-100">
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          </div>
+          <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => { setActiveSection(item.id); setSidebarOpen(false); }}
+                className={`flex w-full items-center gap-4 rounded-xl px-5 py-4 text-lg font-semibold transition-colors ${
+                  activeSection === item.id
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-ink-700 hover:bg-ink-50 hover:text-ink-900'
+                }`}
+              >
+                <Icon name={item.icon} className="h-5 w-5 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+          <div className="border-t border-ink-100 px-5 py-6">
+            <p className="text-center text-sm text-ink-500">Signed in as <span className="font-semibold text-ink-900">{adminUser?.fullName}</span></p>
+          </div>
+        </div>
       )}
 
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 transform border-r border-ink-200 bg-white transition-transform duration-200 md:relative md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-ink-200 md:bg-white">
         <div className="flex h-16 items-center justify-between border-b border-ink-200 px-5">
           <div className="flex items-center gap-2 font-display font-extrabold text-brand-800">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 text-white text-sm">T</span>
             <span>Tenanto</span>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-ink-100 md:hidden">
-            <Icon name="close" className="h-5 w-5" />
-          </button>
         </div>
-
-        <nav className="p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => { setActiveSection(item.id); setSidebarOpen(false); }}
+              onClick={() => { setActiveSection(item.id); }}
               className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeSection === item.id
                   ? 'bg-brand-600 text-white shadow-soft'
