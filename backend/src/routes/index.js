@@ -40,6 +40,7 @@ router.post('/upload/many', requireAuth, rl.uploadLimiter, upload.array('files',
 // --- Verification ---
 router.post('/verify/documents', requireAuth, verif.submitDocuments);
 router.post('/verify/nin', requireAuth, verif.verifyNIN);
+router.post('/verify/bvn', requireAuth, requireRole('landlord'), verif.verifyBVN);
 router.post('/verify/school-email/start', requireAuth, verif.startSchoolEmailVerification);
 router.post('/verify/school-email/confirm', requireAuth, verif.confirmSchoolEmail);
 router.post('/verify/bank-account', requireAuth, requireRole('landlord'), verif.submitBankAccount);
@@ -95,6 +96,8 @@ router.post('/chat/conversations', requireAuth, rl.chatLimiter, chat.startConver
 router.get('/chat/conversations', requireAuth, chat.listConversations);
 router.get('/chat/conversations/:id/messages', requireAuth, chat.listMessages);
 router.post('/chat/conversations/:id/messages', requireAuth, rl.chatLimiter, chat.sendMessage);
+router.patch('/chat/conversations/:id/messages/:messageId', requireAuth, chat.editMessage);
+router.delete('/chat/conversations/:id/messages/:messageId', requireAuth, chat.deleteMessage);
 router.post('/chat/conversations/:id/read', requireAuth, chat.markAsRead);
 router.get('/chat/unread-count', requireAuth, chat.unreadCount);
 router.post('/chat/report-bypass', requireAuth, chat.reportBypass);

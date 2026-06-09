@@ -30,6 +30,10 @@ const messageSchema = new mongoose.Schema(
     blocked: { type: Boolean, default: false }, // If true, body was replaced with notice
 
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+    edited: { type: Boolean, default: false },
+    editedAt: Date,
+    deleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

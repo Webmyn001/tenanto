@@ -17,20 +17,19 @@ export default function VerifyPage() {
   const [user, setUser] = useState(null);
   const [step, setStep] = useState(1);
   const [nin, setNin] = useState('');
-  const [schoolEmail, setSchoolEmail] = useState('');
-  const [schoolCode, setSchoolCode] = useState('');
+  const [bvn, setBvn] = useState('');
 
   const [docKind, setDocKind] = useState('');
   const [loading, setLoading] = useState({
     nin: false,
-    email: false,
-    confirm: false,
+    bvn: false,
     finalize: false
   });
   const [loadingState, setLoadingState] = useState({ doc: '', selfie: '' });
   const [localDocPreview, setLocalDocPreview] = useState(null);
   const [localSelfiePreview, setLocalSelfiePreview] = useState(null);
   const [ninErr, setNinErr] = useState('');
+  const [bvnErr, setBvnErr] = useState('');
   const [budgetMin, setBudgetMin] = useState('');
   const [budgetMax, setBudgetMax] = useState('');
   const [toast, setToast] = useState(null);
@@ -48,20 +47,15 @@ export default function VerifyPage() {
     const u = getUser();
     setUser(u);
     if (u) {
-      if (u.role === 'student') {
-        setDocKind('student_id');
-        if (u.student?.schoolEmail) setSchoolEmail(u.student.schoolEmail);
-      } else if (u.role === 'corper') setDocKind('nysc_id');
+      if (u.role === 'student') setDocKind('student_id');
+      else if (u.role === 'corper') setDocKind('nysc_id');
       else if (u.role === 'landlord') setDocKind('utility_bill');
       if (u.verificationStatus === 'submitted' || u.verificationStatus === 'approved') {
         if (u.verificationStatus === 'approved') setStep(5);
         else setStep(4);
       } else {
-        if (u.role === 'student') {
-          if (u.student?.schoolEmailVerified) setStep(s => Math.max(s, 2));
-        } else {
-          if (u.corper?.ninVerified || u.landlord?.ninVerified) setStep(s => Math.max(s, 2));
-        }
+        const ninVerified = u.role === 'student' ? u.student?.ninVerified : u.role === 'corper' ? u.corper?.ninVerified : u.landlord?.ninVerified;
+        if (ninVerified) setStep(s => Math.max(s, 2));
         if (u.selfieUrl) setStep(s => Math.max(s, 3));
         if (u.documents?.length > 0) setStep(s => Math.max(s, 4));
       }
@@ -82,8 +76,8 @@ export default function VerifyPage() {
   const isApproved = user.verificationStatus === 'approved';
   const isLocked = isSubmitting || isApproved;
 
-  const isNinVerified = user.role === 'corper' ? !!user.corper?.ninVerified : user.role === 'landlord' ? !!user.landlord?.ninVerified : false;
-  const isSchoolEmailVerified = user.role === 'student' ? !!user.student?.schoolEmailVerified : false;
+  const isNinVerified = user.role === 'student' ? !!user.student?.ninVerified : user.role === 'corper' ? !!user.corper?.ninVerified : !!user.landlord?.ninVerified;
+  const isBvnVerified = user.role === 'landlord' ? !!user.landlord?.bvnVerified : false;
   const isSelfieUploaded = !!user.selfieUrl;
 
   const uploadedDocs = user.documents?.filter(d => {
@@ -101,7 +95,7 @@ export default function VerifyPage() {
         ? uploadedDocs.length >= 2
         : false;
 
-  const identityComplete = user.role === 'student' ? isSchoolEmailVerified : isNinVerified;
+  const identityComplete = user.role === 'landlord' ? (isNinVerified && isBvnVerified) : isNinVerified;
 
   async function refresh() {
     const { data } = await api.get('/auth/me');
@@ -122,23 +116,16 @@ export default function VerifyPage() {
     finally { setLoading({ ...loading, nin: false }); }
   }
 
-  async function startSchoolEmail() {
-    setLoading({ ...loading, email: true });
+  async function submitBVN() {
+    if (!/^\d{11}$/.test(bvn)) { setBvnErr('BVN must be 11 digits'); return; }
+    setBvnErr('');
+    setLoading({ ...loading, bvn: true });
     try {
-      const { data } = await api.post('/verify/school-email/start', { schoolEmail });
-      showToast('Verification code sent to your school email', 'success');
-    } catch (e) { showToast(e?.response?.data?.error || 'Failed to send code', 'error'); }
-    finally { setLoading({ ...loading, email: false }); }
-  }
-
-  async function confirmSchoolEmail() {
-    setLoading({ ...loading, confirm: true });
-    try {
-      await api.post('/verify/school-email/confirm', { code: schoolCode });
-      showToast('School email verified ✓', 'success');
+      await api.post('/verify/bvn', { bvn });
+      showToast('BVN verified successfully', 'success');
       refresh();
-    } catch (e) { showToast(e?.response?.data?.error || 'Verification failed', 'error'); }
-    finally { setLoading({ ...loading, confirm: false }); }
+    } catch (e) { showToast(e?.response?.data?.error || 'BVN verification failed', 'error'); }
+    finally { setLoading({ ...loading, bvn: false }); }
   }
 
   async function uploadDoc(e) {
@@ -333,70 +320,78 @@ export default function VerifyPage() {
   function Step1Identity() {
     if (isLocked && identityComplete) {
       return (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
-          <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-sm font-medium">
-            {user.role === 'student' ? 'School email verified' : 'NIN verified'} — {isApproved ? 'Approved' : 'Submitted for review'}
-          </span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
+            <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm font-medium">NIN verified — {isApproved ? 'Approved' : 'Submitted for review'}</span>
+          </div>
+          {user.role === 'landlord' && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
+              <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium">BVN verified — {isApproved ? 'Approved' : 'Submitted for review'}</span>
+            </div>
+          )}
         </div>
       );
     }
 
-    if (user.role === 'corper' || user.role === 'landlord') {
-      if (isNinVerified) {
-        return (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-sm font-medium">NIN verified</span>
-          </div>
-        );
-      }
-      return (
+    return (
+      <div className="space-y-4">
+        {/* NIN — all roles */}
         <div className="card">
           <div className="flex items-center gap-2 mb-3">
-            <span className="w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+            <span className="w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">1a</span>
             <h2 className="font-semibold">NIN Verification</h2>
           </div>
           <p className="text-sm text-gray-600 mb-3">Enter your 11-digit National Identification Number.</p>
-          <input className={`input ${ninErr ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="11-digit NIN" maxLength={11} value={nin} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 11); setNin(v); if (ninErr) setNinErr(''); }} />
-          {ninErr && <p className="mt-1 text-xs text-red-600">{ninErr}</p>}
-          <button onClick={submitNIN} disabled={loading.nin || nin.length !== 11} className="btn-primary mt-3 w-full">
-            {loading.nin ? <span className="spinner" /> : 'Verify NIN'}
-          </button>
+          {isNinVerified ? (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium">NIN verified</span>
+            </div>
+          ) : (
+            <>
+              <input className={`input ${ninErr ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="11-digit NIN" maxLength={11} value={nin} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 11); setNin(v); if (ninErr) setNinErr(''); }} />
+              {ninErr && <p className="mt-1 text-xs text-red-600">{ninErr}</p>}
+              <button onClick={submitNIN} disabled={loading.nin || nin.length !== 11} className="btn-primary mt-3 w-full">
+                {loading.nin ? <span className="spinner" /> : 'Verify NIN'}
+              </button>
+            </>
+          )}
         </div>
-      );
-    }
 
-    // Student
-    if (isSchoolEmailVerified) {
-      return (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-sm font-medium">School email verified ✓</span>
-        </div>
-      );
-    }
-    return (
-      <div className="card">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-          <h2 className="font-semibold">School Email Verification</h2>
-        </div>
-        <p className="text-sm text-gray-600 mb-3">Verify your school email address (.edu.ng).</p>
-        <input className="input" placeholder="you@stu.school.edu.ng" value={schoolEmail} onChange={(e) => setSchoolEmail(e.target.value)} />
-        <button onClick={startSchoolEmail} disabled={loading.email} className="btn-outline mt-3 w-full">
-          {loading.email ? <span className="spinner" /> : 'Send verification code'}
-        </button>
-        <input className="input mt-3" placeholder="Enter 6-digit code" value={schoolCode} onChange={(e) => setSchoolCode(e.target.value)} />
-        <button onClick={confirmSchoolEmail} disabled={loading.confirm} className="btn-primary mt-3 w-full">
-          {loading.confirm ? <span className="spinner" /> : 'Confirm code'}
-        </button>
+        {/* BVN — landlords only */}
+        {user.role === 'landlord' && (
+          <div className="card">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">1b</span>
+              <h2 className="font-semibold">BVN Verification</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">Enter your 11-digit Bank Verification Number.</p>
+            {isBvnVerified ? (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium">BVN verified</span>
+              </div>
+            ) : (
+              <>
+                <input className={`input ${bvnErr ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} placeholder="11-digit BVN" maxLength={11} value={bvn} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 11); setBvn(v); if (bvnErr) setBvnErr(''); }} />
+                {bvnErr && <p className="mt-1 text-xs text-red-600">{bvnErr}</p>}
+                <button onClick={submitBVN} disabled={loading.bvn || bvn.length !== 11} className="btn-primary mt-3 w-full">
+                  {loading.bvn ? <span className="spinner" /> : 'Verify BVN'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -599,7 +594,10 @@ export default function VerifyPage() {
 
     const allComplete = identityComplete && isSelfieUploaded && docsComplete;
     const missing = [];
-    if (!identityComplete) missing.push(user.role === 'student' ? 'Verify your school email (Step 1)' : 'Verify your NIN (Step 1)');
+    if (!identityComplete) {
+      if (user.role === 'landlord') missing.push('Verify your NIN and BVN (Step 1)');
+      else missing.push('Verify your NIN (Step 1)');
+    }
     if (!isSelfieUploaded) missing.push('Upload your selfie (Step 2)');
     if (!docsComplete) missing.push('Upload your documents (Step 3)');
 
@@ -656,8 +654,16 @@ export default function VerifyPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                <span>{user.role === 'student' ? 'School email verified' : 'NIN verified'}</span>
+                <span>NIN verified</span>
               </div>
+              {user.role === 'landlord' && (
+                <div className="flex items-center gap-2 text-sm text-green-700">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>BVN verified</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-sm text-green-700">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -743,9 +749,21 @@ export default function VerifyPage() {
             <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm text-gray-600">
               <p className="font-medium text-gray-700">Landlord checklist:</p>
               <ul className="mt-1 list-inside space-y-0.5">
+                <li>✓ Verify your <b>NIN</b> (step 1a)</li>
+                <li>✓ Verify your <b>BVN</b> (step 1b)</li>
                 <li>✓ Upload a <b>selfie</b> (step 2)</li>
                 <li>✓ Upload a <b>utility bill</b> (step 3)</li>
                 <li>✓ Upload a <b>property ownership document</b> (step 3)</li>
+              </ul>
+            </div>
+          )}
+          {(user.role === 'student' || user.role === 'corper') && (
+            <div className="mt-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm text-gray-600">
+              <p className="font-medium text-gray-700">{user.role === 'student' ? 'Student' : 'Corper'} checklist:</p>
+              <ul className="mt-1 list-inside space-y-0.5">
+                <li>✓ Verify your <b>NIN</b> (step 1)</li>
+                <li>✓ Upload a <b>selfie</b> (step 2)</li>
+                <li>✓ Upload your <b>{user.role === 'student' ? 'school ID' : 'NYSC ID'}</b> (step 3)</li>
               </ul>
             </div>
           )}

@@ -52,6 +52,9 @@ async function decideVerification(req, res) {
     user.livenessProviderRef = undefined;
     if (user.role === 'student') {
       user.student.schoolEmailVerified = false;
+      user.student.ninVerified = false;
+      user.student.nin = undefined;
+      user.student.ninHash = undefined;
     } else if (user.role === 'corper') {
       user.corper.ninVerified = false;
       user.corper.nin = undefined;
@@ -60,6 +63,9 @@ async function decideVerification(req, res) {
       user.landlord.ninVerified = false;
       user.landlord.nin = undefined;
       user.landlord.ninHash = undefined;
+      user.landlord.bvnVerified = false;
+      user.landlord.bvn = undefined;
+      user.landlord.bvnHash = undefined;
       user.landlord.adminApproved = false;
     }
     await user.save();

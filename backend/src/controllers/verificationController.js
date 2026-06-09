@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const User = require('../models/User');
 const { lookupNIN } = require('../utils/nin');
+const { lookupBVN } = require('../utils/bvn');
 const { sendMail } = require('../utils/email');
 const { schoolEmailVerification } = require('../utils/emailTemplates');
 const { matchSelfieToID } = require('../utils/selfieMatch');
@@ -135,20 +136,39 @@ async function resolveBankAccount(req, res) {
 
 async function verifyNIN(req, res) {
   const user = req.user;
-  if (!['corper', 'landlord'].includes(user.role)) {
-    return res.status(400).json({ error: 'Only corpers and landlords need NIN' });
+  if (!['student', 'corper', 'landlord'].includes(user.role)) {
+    return res.status(400).json({ error: 'Only students, corpers, and landlords need NIN' });
   }
   const { nin } = req.body;
   const result = await lookupNIN(nin);
   if (!result.ok) return res.status(400).json({ error: result.reason });
 
-  if (user.role === 'corper') {
+  if (user.role === 'student') {
+    user.student = user.student || {};
+    user.student.nin = nin;
+    user.student.ninVerified = true;
+  } else if (user.role === 'corper') {
     user.corper.nin = nin;
     user.corper.ninVerified = true;
   } else {
     user.landlord.nin = nin;
     user.landlord.ninVerified = true;
   }
+  await user.save();
+  res.json({ verified: true, name: `${result.firstName || ''} ${result.lastName || ''}`.trim() });
+}
+
+async function verifyBVN(req, res) {
+  const user = req.user;
+  if (user.role !== 'landlord') {
+    return res.status(400).json({ error: 'Only landlords need BVN' });
+  }
+  const { bvn } = req.body;
+  const result = await lookupBVN(bvn);
+  if (!result.ok) return res.status(400).json({ error: result.reason });
+
+  user.landlord.bvn = bvn;
+  user.landlord.bvnVerified = true;
   await user.save();
   res.json({ verified: true, name: `${result.firstName || ''} ${result.lastName || ''}`.trim() });
 }
@@ -217,6 +237,7 @@ async function acceptLandlordRules(req, res) {
 module.exports = {
   submitDocuments,
   verifyNIN,
+  verifyBVN,
   startSchoolEmailVerification,
   confirmSchoolEmail,
   submitBankAccount,

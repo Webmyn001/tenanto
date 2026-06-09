@@ -51,9 +51,13 @@ export default function ChatThread() {
   const [conversation, setConversation] = useState(null);
   const [typing, setTyping] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const socketRef = useRef(null);
   const endRef = useRef(null);
   const inputRef = useRef(null);
+  const editRef = useRef(null);
   const typingTimer = useRef(null);
 
   useEffect(() => { setMe(getUser()); }, []);
@@ -90,6 +94,14 @@ export default function ChatThread() {
       api.post(`/chat/conversations/${conversationId}/read`).catch(() => {});
     });
 
+    socket.on('message-edited', ({ message }) => {
+      setMessages(m => m.map(msg => msg._id === message._id ? message : msg));
+    });
+
+    socket.on('message-deleted', ({ messageId }) => {
+      setMessages(m => m.map(msg => msg._id === messageId ? { ...msg, body: 'This message was deleted', deleted: true } : msg));
+    });
+
     socket.on('typing', () => { setTyping(true); });
     socket.on('stop-typing', () => { setTyping(false); });
 
@@ -101,6 +113,14 @@ export default function ChatThread() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
 
+  useEffect(() => {
+    if (editingId && editRef.current) {
+      editRef.current.focus();
+      editRef.current.style.height = 'auto';
+      editRef.current.style.height = Math.min(editRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [editingId]);
+
   function send(e) {
     e.preventDefault();
     if (!draft.trim()) return;
@@ -111,6 +131,34 @@ export default function ChatThread() {
 
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e); }
+  }
+
+  function startEdit(msg) {
+    setEditingId(msg._id);
+    setEditingText(msg.body);
+    setConfirmDeleteId(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingText('');
+  }
+
+  function saveEdit() {
+    if (!editingText.trim() || !editingId) return;
+    socketRef.current?.emit('edit-message', { conversationId, messageId: editingId, body: editingText });
+    setEditingId(null);
+    setEditingText('');
+  }
+
+  function handleEditKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
+    if (e.key === 'Escape') { cancelEdit(); }
+  }
+
+  function handleDelete(msgId) {
+    socketRef.current?.emit('delete-message', { conversationId, messageId: msgId });
+    setConfirmDeleteId(null);
   }
 
   const emitTyping = useCallback(() => {
@@ -168,6 +216,8 @@ export default function ChatThread() {
             const showDate = !prev || !sameDay(prev.createdAt, m.createdAt);
             const showSender = !mine && (!prev || prev.sender?._id !== m.sender?._id);
             const status = readByOther(m);
+            const isEditing = editingId === m._id;
+            const isDeleted = m.deleted;
 
             return (
               <div key={m._id}>
@@ -176,40 +226,83 @@ export default function ChatThread() {
                     <span className="text-[11px] font-medium text-gray-400 bg-gray-50 px-3 py-1 rounded-full">{formatDate(m.createdAt)}</span>
                   </div>
                 )}
-                <div className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-1`}>
+                <div className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-1 group`}>
                   <div className={`max-w-[80%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                     {showSender && (
                       <p className="text-[11px] font-medium text-gray-500 mb-0.5 ml-1">{m.sender?.fullName || 'Unknown'}</p>
                     )}
-                    <div className={`relative px-3.5 py-2.5 text-sm leading-relaxed ${
-                      m.blocked
-                        ? 'bg-red-50 text-red-600 ring-1 ring-red-200 rounded-2xl'
-                        : mine
-                          ? 'bg-brand-600 text-white rounded-2xl rounded-br-md'
-                          : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
-                    }`}>
-                      {m.body}
-                      {m.flagged && !m.blocked && (
-                        <div className="mt-1 text-[10px] opacity-70">⚠ flagged: {m.flagReasons?.join(', ')}</div>
-                      )}
-                    </div>
-                    <div className={`flex items-center gap-1 mt-0.5 ${mine ? 'justify-end' : 'justify-start'}`}>
-                      <span className="text-[10px] text-gray-400">{formatTime(m.createdAt)}</span>
-                      {mine && (
-                        <span className="text-[10px] text-gray-400">
-                          {status === 'Read' ? (
-                            <svg className="w-3.5 h-3.5 text-blue-500" viewBox="0 0 16 11" fill="none">
-                              <path d="M11.5 1.5L6 9L2.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M15 1.5L9.5 9L8.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
-                            </svg>
-                          ) : (
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 16 11" fill="none">
-                              <path d="M11.5 1.5L6 9L2.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </span>
-                      )}
-                    </div>
+                    {isEditing ? (
+                      <div className="w-full">
+                        <textarea ref={editRef} value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          onKeyDown={handleEditKeyDown}
+                          rows={1}
+                          className="w-full rounded-xl border border-brand-400 bg-white py-2.5 px-4 text-sm outline-none ring-2 ring-brand-100 resize-none"
+                          style={{ minHeight: 42, maxHeight: 120 }} />
+                        <div className="flex gap-2 mt-1 justify-end">
+                          <button onClick={cancelEdit} className="text-xs text-gray-500 hover:text-gray-700 font-medium">Cancel</button>
+                          <button onClick={saveEdit} disabled={!editingText.trim()} className="text-xs text-brand-700 hover:text-brand-800 font-medium">Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`relative px-3.5 py-2.5 text-sm leading-relaxed ${
+                        isDeleted
+                          ? 'bg-gray-100 text-gray-400 italic rounded-2xl'
+                          : m.blocked
+                            ? 'bg-red-50 text-red-600 ring-1 ring-red-200 rounded-2xl'
+                            : mine
+                              ? 'bg-brand-600 text-white rounded-2xl rounded-br-md'
+                              : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
+                      }`}>
+                        {m.body}
+                        {m.edited && !isDeleted && (
+                          <span className="text-[10px] opacity-60 ml-1">(edited)</span>
+                        )}
+                        {m.flagged && !m.blocked && !isDeleted && (
+                          <div className="mt-1 text-[10px] opacity-70">⚠ flagged: {m.flagReasons?.join(', ')}</div>
+                        )}
+                      </div>
+                    )}
+                    {!isEditing && (
+                      <div className={`flex items-center gap-1 mt-0.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+                        <span className="text-[10px] text-gray-400">{formatTime(m.editedAt || m.createdAt)}</span>
+                        {mine && !isDeleted && (
+                          <span className="text-[10px] text-gray-400">
+                            {status === 'Read' ? (
+                              <svg className="w-3.5 h-3.5 text-blue-500" viewBox="0 0 16 11" fill="none">
+                                <path d="M11.5 1.5L6 9L2.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M15 1.5L9.5 9L8.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 16 11" fill="none">
+                                <path d="M11.5 1.5L6 9L2.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </span>
+                        )}
+                        {mine && !isDeleted && !isEditing && (
+                          <div className="hidden group-hover:flex items-center gap-0.5 ml-1 transition-opacity">
+                            <button onClick={() => startEdit(m)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            {confirmDeleteId === m._id ? (
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => handleDelete(m._id)} className="p-1 rounded hover:bg-red-100 text-red-500 text-[10px] font-semibold">Delete</button>
+                                <button onClick={() => setConfirmDeleteId(null)} className="p-1 rounded text-gray-400 text-[10px]">Cancel</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setConfirmDeleteId(m._id)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -60,6 +60,35 @@ function attachChatSocket(io) {
     socket.on('stop-typing', ({ conversationId }) => {
       socket.to(conversationId).emit('stop-typing', { userId: socket.user._id });
     });
+
+    socket.on('edit-message', async ({ conversationId, messageId, body }) => {
+      const msg = await Message.findById(messageId).populate('sender', 'fullName role');
+      if (!msg) return;
+      if (msg.sender._id.toString() !== socket.user._id.toString()) return;
+      const filtered = filterMessage(body || '');
+      msg.body = filtered.clean;
+      msg.edited = true;
+      msg.editedAt = new Date();
+      await msg.save();
+      io.to(conversationId).emit('message-edited', { message: msg });
+    });
+
+    socket.on('delete-message', async ({ conversationId, messageId }) => {
+      const msg = await Message.findById(messageId);
+      if (!msg) return;
+      if (msg.sender.toString() !== socket.user._id.toString()) return;
+      msg.body = 'This message was deleted';
+      msg.deleted = true;
+      await msg.save();
+
+      const convo = await Conversation.findById(conversationId);
+      if (convo && convo.lastMessage?.sender?.toString() === socket.user._id.toString()) {
+        convo.lastMessage.body = 'This message was deleted';
+        await convo.save();
+      }
+
+      io.to(conversationId).emit('message-deleted', { messageId });
+    });
   });
 }
 

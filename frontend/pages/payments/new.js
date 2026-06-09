@@ -145,8 +145,9 @@ export default function NewPayment() {
             {busy ? '…' : `Continue to Paystack (${naira(totalDue)})`}
           </button>
 
-          <div className="card mt-4 border-amber-200 bg-amber-50 text-xs text-amber-800">
-            🔒 Funds go to escrow — released to landlord only after you confirm move-in.
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+            <p className="font-medium text-sm mb-1">🔒 Escrow-protected payment</p>
+            <p>Funds are held securely by Paystack and released to the landlord only after you confirm move-in. <a href="/payments/conditions" className="underline font-semibold hover:text-amber-900">Full conditions →</a></p>
           </div>
         </div>
       </div>

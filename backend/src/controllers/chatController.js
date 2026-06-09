@@ -124,12 +124,51 @@ async function unreadCount(req, res) {
   res.json({ count });
 }
 
+async function editMessage(req, res) {
+  const msg = await Message.findById(req.params.messageId);
+  if (!msg) return res.status(404).json({ error: 'Message not found' });
+  if (msg.sender.toString() !== req.user._id.toString()) return res.status(403).json({ error: 'Not your message' });
+  if (msg.deleted) return res.status(400).json({ error: 'Cannot edit a deleted message' });
+
+  const raw = req.body.body || '';
+  const filtered = filterMessage(raw);
+
+  msg.body = filtered.clean;
+  msg.edited = true;
+  msg.editedAt = new Date();
+  await msg.save();
+
+  const updated = await Message.findById(msg._id).populate('sender', 'fullName role');
+  res.json({ message: updated });
+}
+
+async function deleteMessage(req, res) {
+  const msg = await Message.findById(req.params.messageId);
+  if (!msg) return res.status(404).json({ error: 'Message not found' });
+  if (msg.sender.toString() !== req.user._id.toString()) return res.status(403).json({ error: 'Not your message' });
+  if (msg.deleted) return res.status(400).json({ error: 'Message already deleted' });
+
+  msg.body = 'This message was deleted';
+  msg.deleted = true;
+  await msg.save();
+
+  const convo = await Conversation.findById(msg.conversation);
+  if (convo && convo.lastMessage?.sender?.toString() === req.user._id.toString()) {
+    convo.lastMessage.body = 'This message was deleted';
+    await convo.save();
+  }
+
+  res.json({ ok: true });
+}
+
 module.exports = {
   startConversation,
   listConversations,
   listMessages,
   markAsRead,
   sendMessage,
+  editMessage,
+  deleteMessage,
   reportBypass,
   unreadCount,
 };

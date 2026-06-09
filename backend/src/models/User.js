@@ -36,10 +36,13 @@ const userSchema = new mongoose.Schema(
     // --- Student-specific ---
     student: {
       schoolName: String,
-      schoolEmail: String, // .edu.ng — must be verified separately
+      schoolEmail: String,
       schoolEmailVerified: { type: Boolean, default: false },
       department: String,
       matricNumber: String,
+      nin: String,
+      ninHash: { type: String, index: true },
+      ninVerified: { type: Boolean, default: false },
     },
 
     // --- Corper-specific ---
@@ -56,6 +59,9 @@ const userSchema = new mongoose.Schema(
       nin: String,
       ninHash: { type: String, index: true },
       ninVerified: { type: Boolean, default: false },
+      bvn: String,
+      bvnHash: { type: String, index: true },
+      bvnVerified: { type: Boolean, default: false },
       adminApproved: { type: Boolean, default: false },
       // Bank details for escrow payouts
       bankCode: String,
@@ -133,24 +139,30 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Encrypt NIN at rest. We accept plaintext on `corper.nin` / `landlord.nin` and
-// transparently encrypt before storing. The `*.ninHash` deterministic field
-// allows lookup by plaintext NIN when needed.
+// Encrypt NIN and BVN at rest.
 userSchema.pre('save', function (next) {
-  for (const ns of ['corper', 'landlord']) {
+  for (const ns of ['student', 'corper', 'landlord']) {
     const sub = this[ns];
-    if (!sub || !sub.nin) continue;
-    if (this.isModified(`${ns}.nin`) && !/:/.test(sub.nin)) {
+    if (!sub) continue;
+    if (sub.nin && this.isModified(`${ns}.nin`) && !/:/.test(sub.nin)) {
       sub.ninHash = hashForLookup(sub.nin);
       sub.nin = encrypt(sub.nin);
+    }
+    if (sub.bvn && this.isModified(`${ns}.bvn`) && !/:/.test(sub.bvn)) {
+      sub.bvnHash = hashForLookup(sub.bvn);
+      sub.bvn = encrypt(sub.bvn);
     }
   }
   next();
 });
 
 userSchema.methods.getDecryptedNIN = function () {
-  const sub = this.corper?.nin ? this.corper : this.landlord?.nin ? this.landlord : null;
+  const sub = this.student?.nin ? this.student : this.corper?.nin ? this.corper : this.landlord?.nin ? this.landlord : null;
   return sub ? decrypt(sub.nin) : null;
+};
+
+userSchema.methods.getDecryptedBVN = function () {
+  return this.landlord?.bvn ? decrypt(this.landlord.bvn) : null;
 };
 
 userSchema.methods.comparePassword = function (candidate) {

@@ -11,6 +11,7 @@ export default function Layout({ children, wide = false }) {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 py-6 text-xs text-ink-500 sm:flex-row">
           <p>© {new Date().getFullYear()} Tenanto — verified, escrow-protected, agent-free.</p>
           <div className="flex gap-4">
+            <a href="/payments/conditions" className="hover:text-brand-700">Payment conditions</a>
             <a href="/legal/TERMS.md" className="hover:text-brand-700">Terms</a>
             <a href="/legal/landlord-rules" className="hover:text-brand-700">Landlord rules</a>
           </div>

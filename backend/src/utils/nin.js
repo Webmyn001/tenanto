@@ -81,13 +81,24 @@ async function mockProvider(nin) {
     : { ok: false, reason: 'NIN not found in mock registry (use a NIN ending in an even digit)' };
 }
 
-const ADAPTERS = { dojah, verifyme, youverify, smileid, mock: mockProvider };
+async function prembly(nin) {
+  const { data } = await axios.post(
+    'https://api.prembly.com/verification/vnin',
+    { number_nin: nin },
+    { headers: { 'x-api-key': process.env.PREMBLY_API_KEY || '' }, timeout: 15_000 }
+  );
+  if (!data?.status) return { ok: false, reason: data?.detail || 'Verification failed' };
+  const d = data.nin_data;
+  return { ok: true, firstName: d.firstname, lastName: d.surname, dob: d.birthdate, photoUrl: d.photo ? `data:image/png;base64,${d.photo}` : null };
+}
+
+const ADAPTERS = { dojah, verifyme, youverify, smileid, mock: mockProvider, prembly };
 
 async function lookupNIN(nin) {
   if (!/^\d{11}$/.test(nin || '')) return { ok: false, reason: 'NIN must be 11 digits' };
   const provider = process.env.MOCK_THIRD_PARTY === 'true'
     ? 'mock'
-    : (process.env.NIN_PROVIDER || 'mock');
+    : (process.env.NIN_PROVIDER || 'prembly');
   const fn = ADAPTERS[provider];
   if (!fn) return { ok: false, reason: `Unknown NIN provider: ${provider}` };
   try {
